@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+*.whl
+
+# Virtual environments
+venv/
+ven2/
+.venv/
+env/
+
+# Environment variables
+.env
+
+# Vector store / database
+chroma_db/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.suo
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Docker
+.dockerignore
+
+# Logs
+*.log
+*.journal
+
+# Coverage / reports
+.coverage
+htmlcov/
+coverage/
+
+# Jupyter
+.ipynb_checkpoints/
