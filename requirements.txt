@@ -29,5 +29,8 @@ tavily-python>=0.3.5
 # MCP protocol server
 mcp>=1.0.0
 
+# BM25 keyword search (sparse retrieval)
+rank-bm25>=0.2.2
+
 # Utilities
 python-dotenv>=1.0.1

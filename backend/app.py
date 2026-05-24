@@ -38,6 +38,7 @@ from backend.document_processor import (
 )
 from backend.embedding_store import VectorStore
 from backend.chat_engine import ChatEngine
+from backend.agentic_orchestrator import invalidate_chat_cache
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +173,7 @@ async def upload_files(chat_id: str, files: List[UploadFile] = File(...)):
             )
 
     vector_store.add_documents(chat_id, all_chunks, all_metadatas)
+    invalidate_chat_cache(chat_id)
     return {"status": "success", "chunks": len(all_chunks)}
 
 

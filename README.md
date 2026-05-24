@@ -22,45 +22,73 @@ An **agentic Retrieval-Augmented Generation (RAG)** chatbot that lets users uplo
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                        Client (Browser)                          │
-│   ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│   │ File Upload   │  │ Chat Input   │  │ Response + Sources   │  │
-│   └──────┬───────┘  └──────┬───────┘  └──────────┬───────────┘  │
-└──────────┼─────────────────┼──────────────────────┼──────────────┘
-           │                 │                      │
-      ┌────▼─────────────────▼──────────────────────▼──────────┐
-      │                   FastAPI Server (:8000)                 │
-      │                                                         │
-      │  ┌──────────┐  ┌──────────────┐  ┌─────────────────┐  │
-      │  │ app.py   │─▶│ ChatEngine   │─▶│   LangGraph      │  │
-      │  │ (routes) │  │ (sessions)   │  │   Agent          │  │
-      │  └────┬─────┘  └──────┬───────┘  └────────┬────────┘  │
-      │       │               │                    │           │
-      │  ┌────▼─────┐  ┌──────▼───────┐  ┌────────▼────────┐  │
-      │  │ doc_     │  │ VectorStore  │  │  Supervisor     │  │
-      │  │ processor│  │ (ChromaDB)   │  │  (orchestrator) │  │
-      │  └──────────┘  └──────────────┘  └────────┬────────┘  │
-      │                                           │           │
-      └───────────────────────────────────────────┼───────────┘
-                                                  │
-          ┌───────────────────────────────────────┼───────────┐
-          │           MCP Server (:8100)          │           │
-          │  ┌──────────────────────────────┐    │           │
-          │  │ Tools:                       │◄───┘           │
-          │  │  • search_documents          │                │
-          │  │  • list_chat_sources         │                │
-          │  │  • get_chat_context          │                │
-          │  └──────────────────────────────┘                │
-          │                                   Any MCP client │
-          └──────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Client (Browser)                             │
+│   ┌──────────────┐   ┌──────────────┐   ┌───────────────────────┐  │
+│   │ File Upload   │   │ Chat Input   │   │ Response + Citations  │  │
+│   └──────┬───────┘   └──────┬───────┘   └──────────┬────────────┘  │
+└──────────┼──────────────────┼───────────────────────┼───────────────┘
+           │                  │                       │
+      ┌────▼──────────────────▼───────────────────────▼────────────┐
+      │                    FastAPI Server (:8000)                    │
+      │  ┌──────────┐  ┌──────────────┐  ┌──────────────────────┐ │
+      │  │ app.py   │─▶│ ChatEngine   │─▶│  Agent Orchestrator  │ │
+      │  │ (routes) │  │ (sessions)   │  │  (LangGraph)         │ │
+      │  └──────────┘  └──────┬───────┘  └──────────────────────┘ │
+      │                       │                                    │
+      │  ┌─────────────────────────────────────────────────────┐  │
+      │  │              Multi-Agent System                      │  │
+      │  │  ┌────────────┐ ┌────────────┐ ┌───────────────┐   │  │
+      │  │  │  Query     │ │  Retrieval │ │  Critic       │   │  │
+      │  │  │  Planner   │ │  Agent     │ │  Agent        │   │  │
+      │  │  └────────────┘ └─────┬──────┘ └───────┬───────┘   │  │
+      │  │                       │                 │           │  │
+      │  │  ┌────────────────────▼─────────────────▼────────┐  │  │
+      │  │  │         Multi-Strategy Retrieval              │  │  │
+      │  │  │  ┌──────┐ ┌──────┐ ┌───────┐ ┌──────┐       │  │  │
+      │  │  │  │Vector│ │ BM25 │ │Hybrid │ │ Web  │       │  │  │
+      │  │  │  │Search│ │Search│ │Search │ │Search│       │  │  │
+      │  │  │  └──────┘ └──────┘ └───────┘ └──────┘       │  │  │
+      │  │  └──────────────────────────┬───────────────────┘  │  │
+      │  │                             │                       │  │
+      │  │  ┌──────────────────────────▼───────────────────┐  │  │
+      │  │  │        Cross-Encoder Reranker                │  │  │
+      │  │  └──────────────────────────┬───────────────────┘  │  │
+      │  │                             │                       │  │
+      │  │  ┌──────────────────────────▼───────────────────┐  │  │
+      │  │  │        Synthesis Agent (final answer)        │  │  │
+      │  │  └──────────────────────────────────────────────┘  │  │
+      │  │                             │                       │  │
+      │  │  ┌──────────────────────────▼───────────────────┐  │  │
+      │  │  │        Semantic Cache                        │  │  │
+      │  │  └──────────────────────────────────────────────┘  │  │
+      │  └─────────────────────────────────────────────────────┘  │
+      │                                                           │
+      │  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐  │
+      │  │ doc_processor│  │ VectorStore  │  │ Code           │  │
+      │  │ (PDF/DOCX/   │  │ (ChromaDB)   │  │ Interpreter    │  │
+      │  │  TXT + OCR)  │  │ + BM25 Index │  │ (sandbox)      │  │
+      │  └──────────────┘  └──────────────┘  └────────────────┘  │
+      └──────────────────────────┬────────────────────────────────┘
+                                 │
+      ┌──────────────────────────┼────────────────────────────┐
+      │        MCP Server (:8100)│                            │
+      │  ┌──────────────────────────────┐                     │
+      │  │ Tools:  • search_documents   │◄────────────────────┘
+      │  │         • keyword_search     │    Any MCP client
+      │  │         • hybrid_search      │    (Claude Desktop,
+      │  │         • execute_python     │     Cursor, etc.)
+      │  │         • rerank_query       │
+      │  │         • list_chat_sources  │
+      │  └──────────────────────────────┘
+      └─────────────────────────────────────────────────────┘
 ```
 
 ### Data Flow
 
-1. **Upload**: Files → `document_processor` (extract text + OCR) → `chunk_text` → `VectorStore.add_documents` (embed + store in ChromaDB)
-2. **Question**: User query → `ChatEngine` → `supervisor_agent` (LangGraph) → retrieve → grade → generate → respond
-3. **MCP**: External MCP clients (Claude Desktop, Cursor, etc.) can query the same vector store via the MCP server on port 8100
+1. **Upload**: Files → `document_processor` (extract text + OCR) → `chunk_text` → `VectorStore.add_documents` (embed + store in ChromaDB) → rebuild BM25 index → invalidate semantic cache
+2. **Question**: User query → `ChatEngine` → multi-agent orchestrator (LangGraph) → [semantic cache lookup] → [query planner → retrieval agent → reranker → critic loop → synthesis agent] → response with citations
+3. **MCP**: External MCP clients can access the same vector store via the MCP server on port 8100
 
 ---
 
@@ -69,90 +97,154 @@ An **agentic Retrieval-Augmented Generation (RAG)** chatbot that lets users uplo
 | Layer | Choice | Rationale |
 |---|---|---|
 | **Framework** | FastAPI | Async-native, automatic OpenAPI docs, high throughput, easy AWS deployment via Uvicorn |
-| **Agent Orchestration** | LangGraph | State-graph architecture allows explicit node-by-node control over the RAG pipeline — superior to linear chains for debugging and extension |
-| **Vector Store** | ChromaDB | Persistent, embeddable, zero external dependencies. Perfect for single-server deployments. SentenceTransformer integration out of the box |
-| **Embeddings** | sentence-transformers (all-MiniLM-L6-v2) | Lightweight (80 MB), fast CPU inference, good semantic quality. No GPU needed |
-| **LLM** | Groq (Llama 3.3 70B) | 2000+ tok/s inference speed, generous free tier, OpenAI-compatible API. Drop-in replaceable with any OpenAI-compatible endpoint via config |
-| **Document Parsing** | pypdf + python-docx + EasyOCR | Scanned PDFs are handled via OCR fallback — a common real-world requirement |
+| **Agent Orchestration** | LangGraph | State-graph architecture with explicit node-by-node control — ideal for multi-agent planning → retrieval → critique → synthesis loops |
+| **Vector Store** | ChromaDB | Persistent, embeddable, zero external dependencies. SentenceTransformer integration out of the box. Per-chat collections for clean isolation |
+| **Embeddings** | sentence-transformers (all-MiniLM-L6-v2) | Lightweight (80 MB), fast CPU inference, good semantic quality. Same model powers semantic cache |
+| **Lexical Search** | BM25 (rank-bm25) | Complements dense embeddings with exact keyword matching. Critical for technical terms, code, and proper nouns |
+| **Reranker** | Cross-encoder (ms-marco-MiniLM-L-6-v2) | Re-ranks retrieved chunks by true semantic relevance. Significantly improves precision over pure embedding similarity |
+| **LLM** | Groq (Llama 3.3 70B) | 2000+ tok/s inference speed, generous free tier. Drop-in replaceable via config with any OpenAI-compatible endpoint |
+| **Document Parsing** | pypdf + python-docx + EasyOCR | Scanned PDFs handled via OCR fallback. Table extraction from text chunks |
 | **Web Augmentation** | Tavily | Purpose-built search API for LLMs; returns clean, relevant content directly |
-| **MCP** | `mcp` SDK (Anthropic) | Industry-standard protocol for LLM tool access. Makes the vector store available to any MCP-aware client |
+| **Semantic Cache** | SentenceTransformer + cosine similarity | Avoids redundant LLM calls for repeated or very similar queries. Configurable threshold (default 0.88) |
+| **Code Interpreter** | Subprocess sandbox | Verifies code snippets found in documentation by executing them in an isolated Python process |
+| **MCP** | `mcp` SDK (Anthropic) | Industry-standard protocol for LLM tool access. Exposes 7 tools to any MCP-aware client |
 
 ---
 
-## RAG Pipeline (Step by Step)
+## Multi-Agent Super RAG Pipeline
 
-The core intelligence lives in `backend/agent.py` as a LangGraph state machine with 6 nodes:
+The core intelligence lives in `backend/agentic_orchestrator.py` as a LangGraph state machine with 7 nodes, orchestrated by 4 specialized agents:
 
 ```
-User Query
-    │
-    ▼
-┌─────────────────────────────────────────────────────┐
-│  1. analyze_query                                     │
-│     • Rewrites follow-up questions to be              │
-│       self-contained using conversation history       │
-│     • Falls back to original query if analysis fails  │
-└──────────────────────┬──────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────┐
-│  2. retrieve                                          │
-│     • Calls VectorStore.similarity_search_with_       │
-│       metadata() to get top-K chunks                 │
-│     • Returns both text AND metadata                 │
-│       (source filename, chunk index)                 │
-└──────────────────────┬──────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────┐
-│  3. grade_documents                                   │
-│     • Checks if retrieved chunks are relevant         │
-│     • Fast-path: if citations exist → relevant        │
-│     • LLM-based relevance check as fallback           │
-│     • Routes to "generate" or "web_search"           │
-└──────────┬──────────────────────────────────┬───────┘
-           │                                  │
-    [relevant]                          [not relevant]
-           │                                  │
-           ▼                                  ▼
-┌──────────────────┐          ┌──────────────────────────────┐
-│  4. generate      │          │  5. web_search               │
-│     • Answer with │          │     • Tavily API search      │
-│       document    │          │     • Merges web results     │
-│       context     │          │       with document context  │
-│     • Inline [1], │          │     • Feeds to generate node  │
-│       [2] refs    │          └──────────────┬───────────────┘
-└────────┬─────────┘                         │
-         │                                   │
-         └──────────┬────────────────────────┘
-                    │
-                    ▼
-┌─────────────────────────────────────────────────────┐
-│  6. check_groundedness                                │
-│     • LLM verifies every claim has a source           │
-│     • If ungrounded → re-generate                     │
-│     • Completes when grounded or max iterations       │
-└──────────────────────┬──────────────────────────────┘
-                       │
-                       ▼
-                  Final Answer
-              (answer + citations[])
+┌─────────────────────────────────────────────────────────────────────┐
+│                         USER QUERY                                   │
+└───────────────────────────┬─────────────────────────────────────────┘
+                            │
+                            ▼
+┌────────────────────────────────────────────────────────────────────┐
+│  AGENT 1: SEMANTIC CACHE LOOKUP                                    │
+│                                                                    │
+│  check_cache() — query → embed → cosine-sim against stored entries │
+│                                                                    │
+│  [HIT: sim ≥ 0.88] → return cached answer immediately              │
+│  [MISS]            → proceed to planning                           │
+└───────────────────────────────────┬────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────┐
+│  AGENT 2: QUERY PLANNER                                           │
+│                                                                    │
+│  plan_query() — LLM analyzes the question and outputs:             │
+│  • sub_questions: ["What is X?", "How does Y work?"]              │
+│  • strategy: "hybrid" | "hybrid+web" | "web" | "vector"          │
+│  • needs_code: true/false                                         │
+│  • complexity: "simple" | "medium" | "complex"                    │
+│                                                                    │
+│  For follow-ups, it rewrites the query to be self-contained       │
+│  using conversation history                                        │
+└───────────────────────────────────┬────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────┐
+│  AGENT 3: RETRIEVAL AGENT (Multi-Strategy)                        │
+│                                                                    │
+│  retrieve_multi() — executes the planned strategy:                 │
+│                                                                    │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐         │
+│  │  VECTOR  │  │   BM25   │  │  HYBRID  │  │   WEB    │         │
+│  │  SEARCH  │  │  SEARCH  │  │ (RRF     │  │  (Tavily)│         │
+│  │(ChromaDB)│  │(keyword) │  │  fusion) │  │          │         │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘         │
+│                                                                    │
+│  Merges results from all sub-questions                             │
+│                                                                    │
+│  ┌──────────────────────────────────────────────────────────────┐ │
+│  │  CROSS-ENCODER RERANKER                                       │ │
+│  │  Re-scores all retrieved chunks by query-document relevance   │ │
+│  │  Keeps top-K (default 4)                                      │ │
+│  └──────────────────────────────────────────────────────────────┘ │
+│                                                                    │
+│  Extracts source citations from chunk metadata                    │
+└───────────────────────────────────┬────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────┐
+│  AGENT 4: CRITIC / VALIDATION AGENT                               │
+│                                                                    │
+│  critique_context() — LLM evaluates retrieved context:            │
+│  • Score 0.0 – 1.0 for sufficiency                                │
+│  • Feedback on what's missing                                     │
+│                                                                    │
+│         ┌──────────────────────────────┐                          │
+│         │  score ≥ threshold (0.4)?    │                          │
+│         └──────────┬───────────┬───────┘                          │
+│                    │           │                                  │
+│                 [YES]        [NO]                                 │
+│                    │           │                                  │
+│                    ▼           ▼                                  │
+│              SYNTHESIZE   REFORMULATE & RETRY                     │
+│                           (max 3 attempts)                        │
+│                                                                    │
+│  If max retries exceeded → proceed with best-effort context       │
+└───────────────────────────────────┬────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────┐
+│  AGENT 5: SYNTHESIS AGENT                                         │
+│                                                                    │
+│  synthesize_answer():                                              │
+│  • Adapts response format to query complexity:                    │
+│    - Simple: concise answer with inline citations [1], [2]       │
+│    - Medium: structured paragraphs with supporting details        │
+│    - Complex: multi-section with bullet points / tables           │
+│  • If code execution was needed, includes code results            │
+│  • If context is insufficient, says so honestly                   │
+│                                                                    │
+│  → Also runs groundedness verification as a final quality check   │
+└───────────────────────────────────┬────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────┐
+│  SEMANTIC CACHE STORE                                             │
+│  Stores (query_embedding → answer + citations) for future hits    │
+└───────────────────────────────────┬────────────────────────────────┘
+                                    │
+                                    ▼
+                           FINAL RESPONSE
+                    {"answer": "...", "citations": [...]}
 ```
 
 ### Source Citations
 
-Every retrieved chunk carries metadata about its origin:
+Every retrieved chunk carries metadata:
 
 ```python
 # backend/document_processor.py:build_chunk_metadata()
 {
-    "source": "report.pdf",       # Original filename
-    "chunk_index": 3,             # Position in document
-    "total_chunks": 15,           # Total chunks for this file
+    "source": "report.pdf",
+    "chunk_index": 3,
+    "total_chunks": 15,
 }
 ```
 
-The `generate` node's prompt instructs the LLM to cite sources inline like `[1]`, `[2]`. The API returns a structured `citations` array alongside the answer text, which the frontend renders as a styled source panel below each assistant response.
+The `synthesize_answer` node instructs the LLM to cite inline (`[1]`, `[2]`). The API returns a structured `citations` array, rendered by the frontend as a styled source panel.
+
+---
+
+## Multi-Strategy Retrieval (`backend/retrieval_tools.py`)
+
+Four retrieval strategies, selectable per query:
+
+| Strategy | Method | Best For |
+|---|---|---|
+| **Vector** | ChromaDB sentence embeddings (dense) | Semantic similarity, paraphrased queries |
+| **BM25** | Keyword-based lexical matching (sparse) | Technical terms, code, proper names |
+| **Hybrid** | Reciprocal Rank Fusion of vector + BM25 | General purpose (default) |
+| **Web** | Tavily API | Current events, external context |
+
+**Reranking**: After retrieval, a cross-encoder scores each (query, chunk) pair for true relevance. Only the top-K chunks reach the LLM.
+
+**Routing**: The query planner selects the optimal strategy based on query content. Queries mentioning code or current events automatically get `hybrid+web`.
 
 ---
 
@@ -160,11 +252,16 @@ The `generate` node's prompt instructs the LLM to cite sources inline like `[1]`
 
 Beyond basic RAG, this implementation adds:
 
-- **Query Rewriting** — Follow-up questions like "what about the second paragraph?" are rewritten using conversation history before retrieval
-- **Document Grading** — Retrieved chunks are checked for relevance before generation; irrelevant results trigger web search instead
-- **Groundedness Verification** — The answer is checked against sources; if unsubstantiated claims are found, the pipeline re-generates
-- **Graceful Degradation** — If the LLM call fails at any node, the pipeline falls through with a sensible default rather than crashing
-- **Configurable Knobs** — `CHUNK_SIZE`, `RETRIEVAL_K`, `RELEVANCE_THRESHOLD`, `MAX_ITERATIONS`, `USE_OCR` all live in `config.py` and can be overridden via environment variables
+- **Multi-Agent Orchestration** — 5 specialized agents (cache, planner, retrieval, critic, synthesis) coordinated by a LangGraph state machine
+- **Autonomous Critique Loop** — If retrieved context scores below threshold, the query is reformulated and re-retrieved (up to 3 attempts)
+- **Query Decomposition** — Complex questions are broken into sub-questions, each searched independently, then merged
+- **Semantic Caching** — Embeds every query and compares against stored entries (cosine sim ≥ 0.88). Avoinds redundant LLM calls entirely
+- **Cross-Encoder Reranking** — Precision boost from `cross-encoder/ms-marco-MiniLM-L-6-v2`
+- **Code Interpreter** — Sandboxed Python execution for verifying code snippets in documentation
+- **Groundedness Verification** — The final answer is checked against sources; unsubstantiated claims trigger re-generation
+- **Graceful Degradation** — Every node has try/except fallbacks. If the LLM or any tool fails, the pipeline continues with sensible defaults
+- **BM25 + Hybrid Search** — Keyword search catches technical terms that dense embeddings might miss
+- **Configurable Everything** — 30+ settings in `config.py`, all overridable via environment variables (see table below)
 
 ---
 
@@ -253,17 +350,35 @@ All configuration is driven by environment variables (see `backend/config.py`):
 
 | Variable | Default | Description |
 |---|---|---|
+| **Core** | | |
 | `GROQ_API_KEY` | — | **Required.** Groq API key |
 | `TAVILY_API_KEY` | — | Optional. Web search key |
 | `MODEL_NAME` | `llama-3.3-70b-versatile` | Groq model ID |
-| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | SentenceTransformer model |
-| `CHUNK_SIZE` | `500` | Document chunk characters |
-| `CHUNK_OVERLAP` | `50` | Chunk overlap characters |
-| `RETRIEVAL_K` | `4` | Number of chunks to retrieve |
-| `USE_OCR` | `true` | Enable OCR for scanned PDFs |
-| `MCP_PORT` | `8100` | MCP server port |
 | `HOST` | `0.0.0.0` | FastAPI bind address |
 | `PORT` | `8000` | FastAPI port |
+| **Document Processing** | | |
+| `CHUNK_SIZE` | `500` | Document chunk characters |
+| `CHUNK_OVERLAP` | `50` | Chunk overlap characters |
+| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | SentenceTransformer model |
+| `RETRIEVAL_K` | `6` | Initial chunks to retrieve (before reranking) |
+| `USE_OCR` | `true` | Enable OCR for scanned PDFs |
+| **Multi-Agent / Super RAG** | | |
+| `ENABLE_SEMANTIC_CACHE` | `true` | Enable semantic caching of Q&A pairs |
+| `SEMANTIC_CACHE_SIMILARITY` | `0.88` | Cosine sim threshold for cache hit |
+| `SEMANTIC_CACHE_SIZE` | `200` | Max entries per chat |
+| `ENABLE_RERANKING` | `true` | Enable cross-encoder reranking |
+| `RERANKER_MODEL` | `cross-encoder/ms-marco-MiniLM-L-6-v2` | Cross-encoder model name |
+| `RERANK_KEEP` | `4` | Chunks kept after reranking |
+| `ENABLE_BM25` | `true` | Enable BM25 keyword search |
+| `HYBRID_SEARCH_WEIGHT_VECTOR` | `0.6` | Vector weight in hybrid RRF fusion |
+| `HYBRID_SEARCH_WEIGHT_BM25` | `0.4` | BM25 weight in hybrid RRF fusion |
+| `MAX_RETRIEVAL_ATTEMPTS` | `3` | Max critique → reformulate loops |
+| `RELEVANCE_THRESHOLD` | `0.4` | Min critique score to skip reformulation |
+| `ENABLE_CODE_INTERPRETER` | `true` | Enable sandboxed code execution |
+| `CODE_TIMEOUT_SECONDS` | `15` | Code execution timeout |
+| **MCP Server** | | |
+| `MCP_HOST` | `127.0.0.1` | MCP server bind address |
+| `MCP_PORT` | `8100` | MCP server port |
 
 ---
 
@@ -367,20 +482,23 @@ Health check. **Response:** `{"status": "ok"}`
 .
 ├── backend/
 │   ├── __init__.py
-│   ├── app.py                # FastAPI application & routes
-│   ├── config.py             # Environment-based configuration
-│   ├── document_processor.py # File parsing, chunking, OCR
-│   ├── embedding_store.py    # ChromaDB vector store interface
-│   ├── chat_engine.py        # Session management & history
-│   ├── agent.py              # LangGraph RAG agent
-│   └── mcp_server.py         # MCP protocol server
+│   ├── app.py                    # FastAPI application & routes
+│   ├── config.py                 # Environment-based configuration (30+ settings)
+│   ├── document_processor.py     # File parsing, chunking, OCR
+│   ├── embedding_store.py        # ChromaDB vector store + metadata
+│   ├── chat_engine.py            # Session management & history
+│   ├── agent.py                  # Thin entry point → delegates to orchestrator
+│   ├── agentic_orchestrator.py   # ★ Multi-agent LangGraph (core orchestrator)
+│   ├── retrieval_tools.py        # ★ Multi-strategy retrieval (vector, BM25, hybrid, web, reranker, code)
+│   ├── semantic_cache.py         # ★ Semantic cache (embedding-based query dedup)
+│   └── mcp_server.py             # MCP protocol server (7 exposed tools)
 ├── frontend/
-│   └── index.html            # SPA (vanilla JS, no build step)
-├── .env                      # API keys (not committed)
+│   └── index.html                # SPA (vanilla JS, no build step)
+├── .env                          # API keys (not committed)
 ├── .gitignore
 ├── Dockerfile
 ├── requirements.txt
-├── run.py                    # Dev entry point
+├── run.py                        # Dev entry point
 └── README.md
 ```
 

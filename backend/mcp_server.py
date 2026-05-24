@@ -10,19 +10,34 @@ Run standalone::
 
     python -c "from backend.mcp_server import run_mcp_server; run_mcp_server()"
 
-Or start it alongside the FastAPI server from ``run.py``.
+Tools
+-----
+- ``search_documents``       — Vector similarity search
+- ``keyword_search``         — BM25 lexical search
+- ``hybrid_search``          — Combined vector + BM25 with RRF fusion
+- ``list_chat_sources``      — List uploaded filenames
+- ``get_chat_context``       — Summary of documents in a chat
+- ``execute_python``         — Sandboxed code execution (for verifying doc snippets)
+- ``rerank_query``           — Re-rank results using cross-encoder
 """
 
 import logging
+from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
 from backend.config import Config
 from backend.embedding_store import VectorStore
+from backend.retrieval_tools import (
+    interpret_code,
+    reranker,
+    search_bm25,
+    search_hybrid,
+    search_vector,
+)
 
 logger = logging.getLogger(__name__)
 
-# Singleton vector-store instance shared with the agent
 vector_store = VectorStore()
 
 # ---------------------------------------------------------------------------
@@ -31,10 +46,10 @@ vector_store = VectorStore()
 mcp = FastMCP(
     "Document RAG Server",
     instructions=(
-        "Search uploaded documents and list available sources. "
-        "Use 'search_documents' when the user asks a question about "
-        "their uploaded files. Use 'list_chat_sources' to see which "
-        "documents are available in a chat session."
+        "Super RAG tool server. Use 'search_documents' for semantic search, "
+        "'keyword_search' for exact term matching, 'hybrid_search' for best "
+        "results, 'execute_python' to run code snippets from documentation, "
+        "and 'rerank_query' to reorder results by relevance."
     ),
     host=Config.MCP_HOST,
     port=Config.MCP_PORT,
@@ -46,48 +61,80 @@ mcp = FastMCP(
 # ---------------------------------------------------------------------------
 @mcp.tool()
 def search_documents(query: str, chat_id: str, k: int = Config.RETRIEVAL_K) -> str:
-    """Search the uploaded document chunks for the given *chat_id* and
-    return the *k* most relevant excerpts with source attribution.
+    """Semantic vector search using sentence embeddings.
 
     Args:
-        query: The natural-language search query.
-        chat_id: UUID of the chat session to search within.
-        k: How many results to return (default 4).
-
-    Returns:
-        Formatted text with numbered excerpts and source filenames.
+        query: The search query.
+        chat_id: Chat session UUID.
+        k: Number of results (default 6).
     """
     try:
         results = vector_store.similarity_search_with_metadata(chat_id, query, k=k)
         if not results:
-            return "No relevant documents found in this chat."
-
+            return "No relevant documents found."
         parts = []
         for i, (text, meta) in enumerate(results, 1):
             source = meta.get("source", "unknown") if meta else "unknown"
-            # Truncate very long excerpts for readability
-            excerpt = (text[:600] + "...") if len(text) > 600 else text
-            parts.append(f"[{i}] From: {source}\n{excerpt}")
+            excerpt = (text[:500] + "...") if len(text) > 500 else text
+            parts.append(f"[{i}] ({source})\n{excerpt}")
         return "\n\n".join(parts)
     except Exception as exc:
-        logger.exception("MCP search_documents error")
-        return f"Search error: {exc}"
+        return f"Error: {exc}"
+
+
+@mcp.tool()
+def keyword_search(query: str, chat_id: str, k: int = Config.RETRIEVAL_K) -> str:
+    """Exact keyword (BM25) search — good for technical terms and code.
+
+    Args:
+        query: Search terms.
+        chat_id: Chat session UUID.
+        k: Number of results (default 6).
+    """
+    try:
+        results = search_bm25(chat_id, query, k=k)
+        if not results:
+            return "No keyword matches found."
+        parts = []
+        for i, r in enumerate(results, 1):
+            source = r.metadata.get("source", "unknown") if r.metadata else "unknown"
+            excerpt = (r.text[:500] + "...") if len(r.text) > 500 else r.text
+            parts.append(f"[{i}] ({source}) score={r.score:.3f}\n{excerpt}")
+        return "\n\n".join(parts)
+    except Exception as exc:
+        return f"Error: {exc}"
+
+
+@mcp.tool()
+def hybrid_search(query: str, chat_id: str, k: int = Config.RETRIEVAL_K) -> str:
+    """Hybrid search combining vector similarity and BM25 keyword matching.
+
+    Args:
+        query: Search query.
+        chat_id: Chat session UUID.
+        k: Number of results (default 6).
+    """
+    try:
+        results = search_hybrid(chat_id, query, k=k)
+        if not results:
+            return "No results found."
+        parts = []
+        for i, r in enumerate(results, 1):
+            source = r.metadata.get("source", "unknown") if r.metadata else "unknown"
+            excerpt = (r.text[:500] + "...") if len(r.text) > 500 else r.text
+            parts.append(f"[{i}] ({source}) [{r.source}] score={r.score:.3f}\n{excerpt}")
+        return "\n\n".join(parts)
+    except Exception as exc:
+        return f"Error: {exc}"
 
 
 @mcp.tool()
 def list_chat_sources(chat_id: str) -> str:
-    """List every document source file that has been uploaded to a chat.
-
-    Args:
-        chat_id: UUID of the chat session.
-
-    Returns:
-        Bulleted list of source filenames or a "no sources" message.
-    """
+    """List every document source uploaded to a chat."""
     try:
         sources = vector_store.get_sources(chat_id)
         if not sources:
-            return "No documents have been uploaded to this chat yet."
+            return "No documents uploaded yet."
         return "Document sources:\n" + "\n".join(f"- {s}" for s in sources)
     except Exception as exc:
         return f"Error: {exc}"
@@ -95,21 +142,48 @@ def list_chat_sources(chat_id: str) -> str:
 
 @mcp.tool()
 def get_chat_context(chat_id: str) -> str:
-    """Return a brief summary of what documents exist in a chat session.
-
-    Args:
-        chat_id: UUID of the chat session.
-
-    Returns:
-        Summary line with chunk count and source filenames.
-    """
+    """Summary of document count and sources in a chat."""
     try:
         count = vector_store.get_document_count(chat_id)
         sources = vector_store.get_sources(chat_id)
-        parts = [f"Chat {chat_id[:8]}… has {count} document chunk(s)"]
+        parts = [f"Chat has {count} document chunk(s)"]
         if sources:
             parts.append(f"from {len(sources)} source(s): {', '.join(sources)}")
         return " ".join(parts)
+    except Exception as exc:
+        return f"Error: {exc}"
+
+
+@mcp.tool()
+def execute_python(code: str) -> str:
+    """Execute Python code in a sandboxed environment (for code verification).
+
+    Args:
+        code: Python code to execute. Imports are blocked for security.
+    """
+    return interpret_code(code)
+
+
+@mcp.tool()
+def rerank_query(query: str, documents: str, k: Optional[int] = None) -> str:
+    """Re-rank a set of documents by relevance to the query.
+
+    Args:
+        query: The original query.
+        documents: Newline-separated document texts.
+        k: Number of top results to return (default: all).
+    """
+    try:
+        from backend.retrieval_tools import RetrievalResult
+
+        texts = [d.strip() for d in documents.split("\n") if d.strip()]
+        results = [RetrievalResult(text=t) for t in texts]
+        ranked = reranker.rerank(query, results, keep=k or len(results))
+        parts = []
+        for i, r in enumerate(ranked, 1):
+            excerpt = (r.text[:400] + "...") if len(r.text) > 400 else r.text
+            parts.append(f"[{i}] score={r.score:.4f}\n{excerpt}")
+        return "\n\n".join(parts) if parts else "No documents provided."
     except Exception as exc:
         return f"Error: {exc}"
 

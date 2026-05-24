@@ -87,6 +87,18 @@ class VectorStore:
         collection = self.get_collection(chat_id)
         return len(collection.get()["ids"])
 
+    def get_document_metadata(self, chat_id: str, index: int) -> Optional[dict]:
+        """Return metadata for a specific chunk by its position index."""
+        collection = self.get_collection(chat_id)
+        data = collection.get(include=["metadatas"])
+        if data["metadatas"] and index < len(data["metadatas"]):
+            return data["metadatas"][index]
+        return None
+
+    def get_chunk_count(self, chat_id: str) -> int:
+        collection = self.get_collection(chat_id)
+        return len(collection.get()["ids"])
+
     def delete_chat(self, chat_id: str):
         safe_id = self._safe_collection_name(chat_id)
         try:
