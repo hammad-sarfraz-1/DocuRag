@@ -37,6 +37,9 @@ Desktop.ini
 # Docker
 .dockerignore
 
+# Old requirement variants
+requirements-working*.txt
+
 # Logs
 *.log
 *.journal
