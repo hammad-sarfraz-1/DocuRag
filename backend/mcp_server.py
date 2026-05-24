@@ -36,6 +36,8 @@ mcp = FastMCP(
         "their uploaded files. Use 'list_chat_sources' to see which "
         "documents are available in a chat session."
     ),
+    host=Config.MCP_HOST,
+    port=Config.MCP_PORT,
 )
 
 
@@ -118,4 +120,4 @@ def get_chat_context(chat_id: str) -> str:
 def run_mcp_server():
     """Start the MCP server with SSE transport (blocking call)."""
     logger.info("Starting MCP server on %s:%s", Config.MCP_HOST, Config.MCP_PORT)
-    mcp.run(transport="sse", host=Config.MCP_HOST, port=Config.MCP_PORT)
+    mcp.run(transport="sse")
