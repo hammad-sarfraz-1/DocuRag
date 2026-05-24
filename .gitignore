@@ -34,8 +34,8 @@ chroma_db/
 Thumbs.db
 Desktop.ini
 
-# Docker
-.dockerignore
+# Docker (keep .dockerignore itself tracked)
+!.dockerignore
 
 # Old requirement variants
 requirements-working*.txt
