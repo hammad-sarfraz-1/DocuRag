@@ -1,38 +1,13 @@
-# Git
-.git/
-.gitignore
-
-# Virtual environments
-venv/
-ven2/
-.venv/
-env/
-
-# Environment (use Docker build args or .env at runtime)
-.env
-
-# Vector store (will be mounted as volume at runtime)
-chroma_db/
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Python cache
 __pycache__/
 *.pyc
 *.pyo
-
-# Docker
-.dockerignore
-docker-compose.yml
-
-# Logs
-*.log
-
-# Docs source
-README.md
+*.pyd
+.venv/
+venv/
+env/
+.git/
+.gitignore
+node_modules/
+*.db
+*.sqlite3
+.cache/

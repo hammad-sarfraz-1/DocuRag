@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Super RAG Chatbot — Fawad Muhammad Awais</title>
+
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: rgba(15, 23, 42, 0.72);
+            --panel-light: rgba(255,255,255,0.06);
+            --border: rgba(255,255,255,0.08);
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --assistant: #1e293b;
+            --user: #4338ca;
+            --shadow: 0 10px 40px rgba(0,0,0,0.35);
+            --radius: 18px;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            margin: 0; padding: 0; height: 100%;
+            font-family: Inter, Arial, sans-serif;
+            background: radial-gradient(circle at top left, #1e293b 0%, #0f172a 45%), #0f172a;
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        body { display: flex; }
+
+        /* ─── SIDEBAR ─── */
+        .sidebar {
+            width: 300px;
+            background: var(--panel);
+            backdrop-filter: blur(18px);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            gap: 18px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 42px; height: 42px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+            box-shadow: var(--shadow);
+        }
+
+        .logo h2 { margin: 0; font-size: 20px; }
+        .logo p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+        .logo .back-link {
+            display: inline-block;
+            margin-top: 4px;
+            color: #818cf8;
+            font-size: 12px;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .logo .back-link:hover { color: #a5b4fc; }
+
+        .new-chat-btn {
+            width: 100%;
+            border: none;
+            background: linear-gradient(135deg, var(--primary), #8b5cf6);
+            color: white;
+            padding: 14px;
+            border-radius: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s ease;
+        }
+        .new-chat-btn:hover {
+            transform: translateY(-1px);
+            background: linear-gradient(135deg, var(--primary-hover), #7c3aed);
+        }
+
+        .chat-list {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .chat-list::-webkit-scrollbar,
+        .chat-box::-webkit-scrollbar { width: 8px; }
+        .chat-list::-webkit-scrollbar-thumb,
+        .chat-box::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+        }
+
+        .chat-item {
+            background: var(--panel-light);
+            border: 1px solid transparent;
+            border-radius: 14px;
+            padding: 14px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: 0.2s ease;
+        }
+        .chat-item:hover {
+            border-color: rgba(99,102,241,0.4);
+            background: rgba(99,102,241,0.08);
+        }
+        .chat-item.active {
+            background: rgba(99,102,241,0.18);
+            border-color: rgba(99,102,241,0.5);
+        }
+
+        .chat-name {
+            flex: 1;
+            cursor: pointer;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .delete-chat-btn {
+            border: none;
+            background: rgba(239,68,68,0.15);
+            color: #fca5a5;
+            border-radius: 10px;
+            width: 32px; height: 32px;
+            cursor: pointer;
+            transition: 0.2s ease;
+            font-weight: bold;
+        }
+        .delete-chat-btn:hover { background: var(--danger); color: white; }
+
+        /* ─── MAIN ─── */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            gap: 18px;
+            overflow: hidden;
+        }
+
+        .top-panel {
+            display: flex;
+            gap: 18px;
+            flex-wrap: wrap;
+        }
+
+        .upload-area {
+            flex: 1;
+            min-width: 280px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            backdrop-filter: blur(16px);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+        }
+        .upload-area h4 { margin-top: 0; margin-bottom: 6px; font-size: 18px; }
+        .upload-area p { margin-top: 0; color: var(--muted); font-size: 14px; }
+
+        .upload-controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+
+        input[type="file"] {
+            flex: 1;
+            min-width: 220px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: var(--muted);
+            padding: 12px;
+            border-radius: 12px;
+        }
+
+        button {
+            border: none;
+            border-radius: 12px;
+            padding: 12px 18px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.2s ease;
+        }
+
+        #uploadBtn, #sendBtn {
+            background: linear-gradient(135deg, var(--primary), #8b5cf6);
+            color: white;
+        }
+        #uploadBtn:hover, #sendBtn:hover {
+            background: linear-gradient(135deg, var(--primary-hover), #7c3aed);
+        }
+
+        .status { margin-top: 14px; color: var(--muted); font-size: 14px; }
+
+        /* ─── CHAT ─── */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            backdrop-filter: blur(18px);
+            box-shadow: var(--shadow);
+        }
+
+        .chat-header {
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chat-header h3 { margin: 0; font-size: 18px; }
+        .chat-header span { color: var(--muted); font-size: 13px; }
+
+        .chat-box {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .message { display: flex; animation: fadeIn 0.2s ease; }
+        .message.user { justify-content: flex-end; }
+        .message.assistant { justify-content: flex-start; }
+
+        .bubble {
+            max-width: 75%;
+            padding: 14px 16px;
+            border-radius: 18px;
+            line-height: 1.6;
+            font-size: 15px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+        .user .bubble {
+            background: linear-gradient(135deg, #4f46e5, #6366f1);
+            color: white;
+            border-bottom-right-radius: 6px;
+        }
+        .assistant .bubble {
+            background: rgba(255,255,255,0.06);
+            color: #e2e8f0;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-bottom-left-radius: 6px;
+        }
+
+        .citations {
+            margin-top: 10px;
+            padding: 10px 14px;
+            background: rgba(99,102,241,0.08);
+            border: 1px solid rgba(99,102,241,0.18);
+            border-radius: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .citations strong {
+            color: #a5b4fc;
+            display: block;
+            margin-bottom: 6px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .citation-item { padding: 4px 0; color: #c7d2fe; word-break: break-all; }
+        .citation-item .src-name { color: #818cf8; font-weight: 600; }
+        .citation-item .src-snippet {
+            color: #94a3b8;
+            font-size: 12px;
+            display: block;
+            margin-top: 2px;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 14px;
+            padding: 18px;
+            border-top: 1px solid var(--border);
+            background: rgba(255,255,255,0.02);
+        }
+        .input-area input {
+            flex: 1;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.05);
+            color: white;
+            padding: 14px 16px;
+            border-radius: 14px;
+            outline: none;
+            font-size: 15px;
+        }
+        .input-area input::placeholder { color: #94a3b8; }
+        .input-area input:focus {
+            border-color: rgba(99,102,241,0.5);
+            box-shadow: 0 0 0 4px rgba(99,102,241,0.15);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 500;
+            background: rgba(16,185,129,0.12);
+            color: #6ee7b7;
+            border: 1px solid rgba(16,185,129,0.2);
+            margin-left: 8px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 900px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; height: 260px; border-right: none; border-bottom: 1px solid var(--border); }
+            .bubble { max-width: 92%; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="logo">
+            <div class="logo-icon">R</div>
+            <div>
+                <h2>Super RAG</h2>
+                <p>Multi-agent document assistant</p>
+                <a href="/" class="back-link">&larr; Back to Home</a>
+            </div>
+        </div>
+
+        <button class="new-chat-btn" id="newChatBtn">+ New Chat</button>
+        <div class="chat-list" id="chatList"></div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+        <div class="top-panel">
+            <div class="upload-area">
+                <h4>Upload Documents</h4>
+                <p>Add PDFs, DOCX, or TXT files to the currently selected chat.</p>
+                <div class="upload-controls">
+                    <input type="file" id="fileInput" multiple accept=".pdf,.docx,.txt" />
+                    <button id="uploadBtn">Upload Files</button>
+                </div>
+                <div id="uploadStatus" class="status"></div>
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <div class="chat-header">
+                <div>
+                    <h3>Conversation <span class="status-badge" id="modeBadge">Agentic RAG</span></h3>
+                    <span>5-agent orchestration &middot; Hybrid search &middot; Semantic cache</span>
+                </div>
+            </div>
+
+            <div class="chat-box" id="chatBox">
+                <div class="message assistant">
+                    <div class="bubble">
+                        Select a chat or create a new one.
+                        Upload documents and start asking questions.
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <input type="text" id="questionInput" placeholder="Ask a question about your documents..." />
+                <button id="sendBtn">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentChatId = null;
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+
+        async function loadChats() {
+            try {
+                const res = await fetch('/chats');
+                const chats = await res.json();
+                const container = document.getElementById('chatList');
+                container.innerHTML = '';
+
+                for (let chat of chats) {
+                    const div = document.createElement('div');
+                    div.className = 'chat-item' + (currentChatId === chat.chat_id ? ' active' : '');
+                    div.dataset.chatId = chat.chat_id;
+
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'chat-name';
+                    nameSpan.textContent = chat.name;
+                    nameSpan.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        switchChat(chat.chat_id);
+                    });
+
+                    const delBtn = document.createElement('button');
+                    delBtn.textContent = '\u00d7';
+                    delBtn.className = 'delete-chat-btn';
+                    delBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        if (confirm('Delete this chat? All documents and history will be lost.')) {
+                            await fetch(`/chats/${chat.chat_id}`, { method: 'DELETE' });
+                            if (currentChatId === chat.chat_id) currentChatId = null;
+                            await loadChats();
+                            if (currentChatId === null) {
+                                const remaining = await (await fetch('/chats')).json();
+                                if (remaining.length > 0) {
+                                    switchChat(remaining[0].chat_id);
+                                } else {
+                                    await createNewChat();
+                                }
+                            }
+                        }
+                    });
+
+                    div.appendChild(nameSpan);
+                    div.appendChild(delBtn);
+                    container.appendChild(div);
+                }
+
+                if (!currentChatId && chats.length > 0) {
+                    await switchChat(chats[0].chat_id);
+                } else if (chats.length === 0) {
+                    await createNewChat();
+                }
+            } catch (err) {
+                console.error('loadChats error:', err);
+            }
+        }
+
+        async function createNewChat() {
+            const name = prompt('Enter chat name:', 'New Chat');
+            if (!name) return;
+            const formData = new FormData();
+            formData.append('name', name);
+            const res = await fetch('/chats/new', { method: 'POST', body: formData });
+            const data = await res.json();
+            await loadChats();
+            await switchChat(data.chat_id);
+        }
+
+        async function switchChat(chatId) {
+            if (currentChatId === chatId) return;
+            currentChatId = chatId;
+            await loadChats();
+            await loadChatHistory();
+        }
+
+        async function loadChatHistory() {
+            if (!currentChatId) {
+                document.getElementById('chatBox').innerHTML = `
+                    <div class="message assistant">
+                        <div class="bubble">No chat selected. Create or select a chat.</div>
+                    </div>`;
+                return;
+            }
+            try {
+                const res = await fetch(`/chats/${currentChatId}/history`);
+                const data = await res.json();
+                const chatBox = document.getElementById('chatBox');
+                chatBox.innerHTML = '';
+                for (let msg of data.history) {
+                    addMessage(msg.role, msg.content);
+                }
+                if (data.history.length === 0) {
+                    addMessage('assistant', 'No conversation yet. Upload documents and ask a question.');
+                }
+            } catch (err) {
+                console.error('loadChatHistory error:', err);
+            }
+        }
+
+        async function uploadToCurrentChat() {
+            if (!currentChatId) { alert('Please select or create a chat first.'); return; }
+            const input = document.getElementById('fileInput');
+            const files = input.files;
+            if (files.length === 0) { alert('Select files to upload.'); return; }
+            const formData = new FormData();
+            for (let file of files) { formData.append('files', file); }
+            const statusDiv = document.getElementById('uploadStatus');
+            statusDiv.innerText = 'Uploading...';
+            try {
+                const res = await fetch(`/chats/${currentChatId}/upload`, { method: 'POST', body: formData });
+                const data = await res.json();
+                if (res.ok) {
+                    statusDiv.innerText = data.status + ' \u2013 ' + data.chunks + ' chunks loaded.';
+                    input.value = '';
+                } else {
+                    statusDiv.innerText = 'Error: ' + (data.detail || 'Unknown error');
+                }
+            } catch (err) {
+                statusDiv.innerText = 'Upload failed: ' + err.message;
+            }
+        }
+
+        async function askQuestion() {
+            if (!currentChatId) { alert('Please select or create a chat first.'); return; }
+            const questionInput = document.getElementById('questionInput');
+            const question = questionInput.value.trim();
+            if (!question) return;
+
+            addMessage('user', question);
+            questionInput.value = '';
+
+            const formData = new FormData();
+            formData.append('question', question);
+
+            try {
+                const res = await fetch(`/chats/${currentChatId}/chat`, { method: 'POST', body: formData });
+                const data = await res.json();
+                if (res.ok) {
+                    addMessage('assistant', data.answer, data.citations || []);
+                } else {
+                    addMessage('assistant', 'Error: ' + (data.detail || 'Unknown error'));
+                }
+            } catch (err) {
+                addMessage('assistant', 'Request failed: ' + err.message);
+            }
+        }
+
+        function addMessage(role, content, citations) {
+            const chatBox = document.getElementById('chatBox');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message ' + role;
+
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+
+            let html = '<strong>' + (role === 'user' ? 'You' : 'Assistant') + '</strong><br>' + escapeHtml(content);
+
+            if (role === 'assistant' && citations && citations.length > 0) {
+                html += '<div class="citations"><strong>Sources</strong>';
+                const seen = new Set();
+                let idx = 0;
+                for (let c of citations) {
+                    const key = c.source + '|' + c.chunk_index;
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    idx++;
+                    const snippet = c.snippet.length > 120 ? c.snippet.substring(0, 120) + '...' : c.snippet;
+                    html += '<div class="citation-item">' +
+                        '<span class="src-name">[' + idx + '] ' + escapeHtml(c.source) + '</span>' +
+                        ' <span class="src-snippet">' + escapeHtml(snippet) + '</span></div>';
+                }
+                html += '</div>';
+            }
+
+            bubble.innerHTML = html;
+            wrapper.appendChild(bubble);
+            chatBox.appendChild(wrapper);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('newChatBtn').addEventListener('click', createNewChat);
+            document.getElementById('uploadBtn').addEventListener('click', uploadToCurrentChat);
+            document.getElementById('sendBtn').addEventListener('click', askQuestion);
+            document.getElementById('questionInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') askQuestion();
+            });
+            loadChats();
+        });
+    </script>
+</body>
+</html>

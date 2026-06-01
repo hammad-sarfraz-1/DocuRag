@@ -57,17 +57,12 @@ from backend.retrieval_tools import (
 from backend.semantic_cache import SemanticCache, semantic_cache
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
 # LLM
-# ---------------------------------------------------------------------------
 llm = ChatGroq(api_key=Config.GROQ_API_KEY, model=Config.MODEL_NAME)
 vector_store = VectorStore()
 
 
-# ---------------------------------------------------------------------------
 # State definition
-# ---------------------------------------------------------------------------
 class Citation(TypedDict):
     source: str
     chunk_index: int
@@ -116,9 +111,7 @@ class AgenticState(TypedDict):
     iteration: int
 
 
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
 def _fmt(history: List[Dict], n: int = 6) -> str:
     lines = []
     for m in history[-n:]:
@@ -153,9 +146,7 @@ def _has_uploaded_docs(chat_id: str) -> bool:
         return False
 
 
-# ===================================================================
 # NODE 1 — Semantic Cache Lookup
-# ===================================================================
 def check_cache(state: AgenticState) -> dict:
     if not Config.ENABLE_SEMANTIC_CACHE:
         return {"cache_hit": False}
@@ -171,9 +162,7 @@ def check_cache(state: AgenticState) -> dict:
     return {"cache_hit": False}
 
 
-# ===================================================================
 # NODE 2 — Query Planner Agent
-# ===================================================================
 def plan_query(state: AgenticState) -> dict:
     """Analyze the query, decompose it, and choose a retrieval strategy."""
     history_str = _fmt(state["history"])
@@ -218,9 +207,7 @@ def plan_query(state: AgenticState) -> dict:
     }
 
 
-# ===================================================================
 # NODE 3 — Multi-Strategy Retrieval Agent
-# ===================================================================
 def retrieve_multi(state: AgenticState) -> dict:
     """Execute retrieval using the planned strategy, then rerank."""
     plan: QueryPlan = state.get("query_plan", {})
@@ -463,9 +450,7 @@ workflow.add_edge("store_cache", END)
 graph = workflow.compile()
 
 
-# ===================================================================
 # Public entry point (called from agent.py / chat_engine.py)
-# ===================================================================
 def run_agentic_rag(
     user_input: str, chat_id: str, history: List[Dict[str, str]]
 ) -> dict:
@@ -508,9 +493,7 @@ def run_agentic_rag(
     }
 
 
-# ---------------------------------------------------------------------------
 # Utility: invalidate cache on document upload
-# ---------------------------------------------------------------------------
 def invalidate_chat_cache(chat_id: str):
     semantic_cache.invalidate(chat_id)
     rebuild_bm25_index(chat_id)

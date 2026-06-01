@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Architecture — Super RAG System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0b1120;
+            color: #e2e8f0;
+            line-height: 1.7;
+        }
+
+        /* ─── NAV ─── */
+        .top-nav {
+            position: sticky; top: 0;
+            background: rgba(11,17,32,0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+        }
+        .top-nav .brand { font-weight: 700; color: #f1f5f9; }
+        .top-nav .brand span { color: #818cf8; }
+        .top-nav a {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            margin-left: 20px;
+            transition: color 0.2s;
+        }
+        .top-nav a:hover { color: #e2e8f0; }
+
+        /* ─── HERO ─── */
+        .arch-hero {
+            text-align: center;
+            padding: 60px 24px 40px;
+            background: radial-gradient(ellipse at 50% 20%, rgba(99,102,241,0.06) 0%, transparent 60%);
+        }
+        .arch-hero h1 {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 800;
+            background: linear-gradient(135deg, #f1f5f9 30%, #818cf8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .arch-hero p {
+            color: #64748b;
+            max-width: 640px;
+            margin: 12px auto 0;
+            font-size: 16px;
+        }
+
+        /* ─── SECTIONS ─── */
+        .section {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 48px 24px;
+        }
+        .section-header {
+            margin-bottom: 28px;
+        }
+        .section-header h2 {
+            font-size: 26px;
+            font-weight: 700;
+            color: #f1f5f9;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .section-header h2 .num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px; height: 36px;
+            border-radius: 10px;
+            background: rgba(99,102,241,0.12);
+            color: #818cf8;
+            font-size: 16px;
+            font-weight: 700;
+        }
+        .section-header p {
+            color: #64748b;
+            font-size: 15px;
+            margin-top: 6px;
+        }
+
+        /* ─── ARCHITECTURE DIAGRAM ─── */
+        .diagram {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+            margin: 20px 0 10px;
+            font-size: 14px;
+        }
+        .diagram-row {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            padding: 8px 0;
+        }
+        .diagram-box {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 12px;
+            padding: 14px 18px;
+            text-align: center;
+            min-width: 120px;
+            transition: 0.2s;
+        }
+        .diagram-box:hover {
+            border-color: rgba(99,102,241,0.25);
+            background: rgba(99,102,241,0.04);
+        }
+        .diagram-box .d-icon { font-size: 22px; display: block; margin-bottom: 4px; }
+        .diagram-box .d-label { font-weight: 600; font-size: 13px; color: #e2e8f0; }
+        .diagram-box .d-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+        .diagram-box.primary {
+            background: rgba(99,102,241,0.08);
+            border-color: rgba(99,102,241,0.2);
+        }
+        .diagram-box.primary .d-label { color: #a5b4fc; }
+        .arrow-down {
+            color: #475569;
+            font-size: 18px;
+            padding: 2px 0;
+        }
+
+        /* ─── DETAIL CARDS ─── */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-top: 12px;
+        }
+        .card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px;
+            padding: 22px 24px;
+            transition: 0.2s;
+        }
+        .card:hover {
+            background: rgba(255,255,255,0.03);
+            border-color: rgba(99,102,241,0.12);
+        }
+        .card .card-icon { font-size: 28px; margin-bottom: 8px; }
+        .card h4 { font-size: 16px; font-weight: 600; color: #e2e8f0; margin-bottom: 6px; }
+        .card p { font-size: 14px; color: #94a3b8; line-height: 1.6; }
+        .card code {
+            display: inline-block;
+            background: rgba(99,102,241,0.08);
+            color: #a5b4fc;
+            padding: 1px 8px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+        }
+
+        /* ─── TABLE ─── */
+        .table-wrap {
+            overflow-x: auto;
+            margin-top: 12px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        th {
+            color: #94a3b8;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: rgba(255,255,255,0.02);
+        }
+        td { color: #e2e8f0; }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+        td code {
+            background: rgba(99,102,241,0.08);
+            color: #a5b4fc;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+        }
+
+        /* ─── CODE BLOCKS ─── */
+        pre {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 18px 22px;
+            overflow-x: auto;
+            margin-top: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #c7d2fe;
+        }
+        pre .cm { color: #64748b; }
+        pre .kw { color: #818cf8; }
+        pre .str { color: #6ee7b7; }
+        pre .num { color: #fbbf24; }
+
+        /* ─── FLOW LIST ─── */
+        .flow-list {
+            list-style: none;
+            counter-reset: step;
+            margin-top: 12px;
+        }
+        .flow-list li {
+            counter-increment: step;
+            padding: 14px 14px 14px 48px;
+            position: relative;
+            border-left: 2px solid rgba(99,102,241,0.15);
+            margin-left: 12px;
+        }
+        .flow-list li::before {
+            content: counter(step);
+            position: absolute;
+            left: -14px;
+            top: 12px;
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: rgba(99,102,241,0.12);
+            color: #818cf8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+        }
+        .flow-list li:last-child { border-left-color: transparent; }
+        .flow-list strong { color: #e2e8f0; }
+        .flow-list .desc { color: #94a3b8; font-size: 14px; }
+
+        /* ─── RESPONSIVE ─── */
+        @media (max-width: 700px) {
+            .top-nav { padding: 14px 16px; flex-wrap: wrap; gap: 8px; }
+            .top-nav a { margin-left: 12px; font-size: 13px; }
+            .section { padding: 32px 16px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAV -->
+    <div class="top-nav">
+        <div class="brand">Super RAG <span>Architecture</span></div>
+        <div>
+            <a href="/">Home</a>
+            <a href="/rag">RAG Chatbot</a>
+        </div>
+    </div>
+
+    <!-- HERO -->
+    <div class="arch-hero">
+        <h1>System Architecture</h1>
+        <p>
+            Multi-Agent Super RAG &middot; FastAPI &middot; LangGraph &middot; ChromaDB &middot;
+            MCP &middot; Docker &middot; AWS EC2 &middot; Nginx &middot; fail2ban
+        </p>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- 1. OVERVIEW -->
+    <!-- ================================================================ -->
+    <div class="section" id="overview">
+        <div class="section-header">
+            <h2><span class="num">1</span> High-Level Architecture</h2>
+            <p>The system comprises three main layers: the client UI, the FastAPI backend with multi-agent orchestration, and the infrastructure layer running on AWS.</p>
+        </div>
+
+        <!-- DIAGRAM -->
+        <div class="diagram">
+            <div class="diagram-row">
+                <div class="diagram-box">
+                    <span class="d-icon">&#127760;</span>
+                    <span class="d-label">Browser</span>
+                    <span class="d-sub">HTML &middot; CSS &middot; JS</span>
+                </div>
+                <div class="diagram-box">
+                    <span class="d-icon">&#128274;</span>
+                    <span class="d-label">Nginx</span>
+                    <span class="d-sub">Reverse proxy &middot; TLS</span>
+                </div>
+            </div>
+            <div class="arrow-down">&#9660;</div>
+            <div class="diagram-row">
+                <div class="diagram-box primary">
+                    <span class="d-icon">&#9889;</span>
+                    <span class="d-label">FastAPI Server</span>
+                    <span class="d-sub">Uvicorn &middot; Port 8000</span>
+                </div>
+            </div>
+            <div class="arrow-down">&#9660;</div>
+            <div class="diagram-row" style="gap: 8px;">
+                <div class="diagram-box" style="min-width:100px;">
+                    <span class="d-icon">&#129302;</span>
+                    <span class="d-label">Agentic<br/>Orchestrator</span>
+                    <span class="d-sub">LangGraph</span>
+                </div>
+                <div class="diagram-box" style="min-width:100px;">
+                    <span class="d-icon">&#128269;</span>
+                    <span class="d-label">Retrieval<br/>Tools</span>
+                    <span class="d-sub">ChromaDB + BM25</span>
+                </div>
+                <div class="diagram-box" style="min-width:100px;">
+                    <span class="d-icon">&#128218;</span>
+                    <span class="d-label">Doc<br/>Processor</span>
+                    <span class="d-sub">PDF &middot; DOCX &middot; TXT</span>
+                </div>
+                <div class="diagram-box" style="min-width:100px;">
+                    <span class="d-icon">&#128200;</span>
+                    <span class="d-label">Semantic<br/>Cache</span>
+                    <span class="d-sub">sentence-transformers</span>
+                </div>
+            </div>
+            <div class="arrow-down">&#9660;</div>
+            <div class="diagram-row" style="gap: 8px;">
+                <div class="diagram-box" style="min-width:100px;">
+                    <span class="d-icon">&#128640;</span>
+                    <span class="d-label">Groq LLM</span>
+                    <span class="d-sub">Llama 3.3 70B</span>
+                </div>
+                <div class="diagram-box" style="min-width:100px;">
+                    <span class="d-icon">&#127760;</span>
+                    <span class="d-label">Tavily</span>
+                    <span class="d-sub">Web search</span>
+                </div>
+                <div class="diagram-box" style="min-width:100px;">
+                    <span class="d-icon">&#128187;</span>
+                    <span class="d-label">MCP Server</span>
+                    <span class="d-sub">Port 8100</span>
+                </div>
+            </div>
+        </div>
+
+        <p style="color:#64748b; text-align:center; margin-top:12px; font-size:14px;">
+            The application is containerized with Docker and deployed on a single AWS EC2 instance
+            behind Nginx with fail2ban for security hardening.
+        </p>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- 2. MULTI-AGENT SYSTEM -->
+    <!-- ================================================================ -->
+    <div class="section" id="agents">
+        <div class="section-header">
+            <h2><span class="num">2</span> Multi-Agent Orchestration</h2>
+            <p>The core intelligence is a LangGraph state machine with 5 specialized agents working in concert.</p>
+        </div>
+
+        <ol class="flow-list">
+            <li>
+                <strong>Semantic Cache Agent</strong>
+                <div class="desc">
+                    Embeds every incoming query using <code>all-MiniLM-L6-v2</code> and compares
+                    against stored entries via cosine similarity. If similarity &ge; 0.88,
+                    the cached answer is returned immediately — zero LLM calls.
+                </div>
+            </li>
+            <li>
+                <strong>Query Planner Agent</strong>
+                <div class="desc">
+                    An LLM analyzes the question and outputs a structured plan: sub-questions
+                    (for complex/decomposable queries), retrieval strategy (<code>hybrid</code>,
+                    <code>hybrid+web</code>, <code>web</code>, or <code>vector</code>), whether
+                    code execution is needed, and complexity level. Follow-up questions are
+                    rewritten to be self-contained using conversation history.
+                </div>
+            </li>
+            <li>
+                <strong>Retrieval Agent</strong>
+                <div class="desc">
+                    Executes the planned strategy. Supports 4 retrieval methods:
+                    <strong>Vector search</strong> (ChromaDB dense embeddings),
+                    <strong>BM25</strong> (sparse keyword), <strong>Hybrid</strong>
+                    (Reciprocal Rank Fusion of both), and <strong>Web search</strong>
+                    (Tavily). All results are merged and reranked by a
+                    <code>cross-encoder/ms-marco-MiniLM-L-6-v2</code> model for maximum precision.
+                </div>
+            </li>
+            <li>
+                <strong>Critic / Validation Agent</strong>
+                <div class="desc">
+                    An LLM scores the retrieved context from 0.0&ndash;1.0 for sufficiency.
+                    If the score falls below the threshold (default 0.4), the query is
+                    reformulated and re-retrieved (up to 3 attempts). This autonomous
+                    critique loop dramatically improves answer quality.
+                </div>
+            </li>
+            <li>
+                <strong>Synthesis Agent</strong>
+                <div class="desc">
+                    Generates the final answer with inline source citations <code>[1]</code>,
+                    <code>[2]</code>, adapting the response style to the query complexity
+                    (concise for simple, structured sections for complex). Includes a
+                    groundedness verification step that checks every claim against sources.
+                </div>
+            </li>
+        </ol>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- 3. TECH STACK -->
+    <!-- ================================================================ -->
+    <div class="section" id="stack">
+        <div class="section-header">
+            <h2><span class="num">3</span> Technology Stack</h2>
+            <p>Every component was chosen for a specific reason — balancing performance, cost, and maintainability.</p>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Layer</th><th>Technology</th><th>Rationale</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Backend Framework</strong></td>
+                        <td><code>FastAPI</code> + <code>Uvicorn</code></td>
+                        <td>Async-native, automatic OpenAPI docs, high throughput, easy deployment behind Nginx.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Agent Orchestration</strong></td>
+                        <td><code>LangGraph</code></td>
+                        <td>State-graph architecture gives explicit control over the multi-agent pipeline — far more debuggable than linear chains.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>LLM</strong></td>
+                        <td><code>Groq</code> (Llama 3.3 70B)</td>
+                        <td>2000+ tokens/second inference, generous free tier. Drop-in replaceable via config.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Vector Store</strong></td>
+                        <td><code>ChromaDB</code></td>
+                        <td>Persistent, embeddable, zero external services. SentenceTransformer integration built-in.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Embeddings</strong></td>
+                        <td><code>all-MiniLM-L6-v2</code></td>
+                        <td>Lightweight (80 MB), fast CPU inference, good semantic quality. No GPU needed.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Keyword Search</strong></td>
+                        <td><code>rank-bm25</code></td>
+                        <td>BM25 Okapi — the standard for lexical search. Complements dense embeddings perfectly.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Reranker</strong></td>
+                        <td><code>cross-encoder/ms-marco-MiniLM-L-6-v2</code></td>
+                        <td>Re-ranks retrieved chunks by true relevance. Significantly boosts precision over raw similarity.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Web Search</strong></td>
+                        <td><code>Tavily</code></td>
+                        <td>Purpose-built for LLM agents. Returns clean, structured content.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>MCP Protocol</strong></td>
+                        <td><code>mcp</code> SDK (Anthropic)</td>
+                        <td>Industry standard for LLM tool access. Exposes 7 tools to any MCP-aware client.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Document Parsing</strong></td>
+                        <td><code>pypdf</code> + <code>python-docx</code> + <code>EasyOCR</code></td>
+                        <td>PDF, DOCX, TXT support with OCR fallback for scanned documents.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Containerization</strong></td>
+                        <td><code>Docker</code></td>
+                        <td>Reproducible builds, easy CI/CD, one-command deployment.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Cloud</strong></td>
+                        <td><code>AWS EC2</code> (Ubuntu 22.04)</td>
+                        <td>Cost-effective single-instance deployment. t3.medium is sufficient.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Reverse Proxy</strong></td>
+                        <td><code>Nginx</code></td>
+                        <td>TLS termination, static file serving, rate limiting, security headers.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Security</strong></td>
+                        <td><code>fail2ban</code></td>
+                        <td>Brute-force protection for SSH. Bans IPs after repeated failed attempts.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- 4. DOCKER DEPLOYMENT -->
+    <!-- ================================================================ -->
+    <div class="section" id="docker">
+        <div class="section-header">
+            <h2><span class="num">4</span> Docker Deployment</h2>
+            <p>The application is fully containerized for reproducible builds and easy deployment.</p>
+        </div>
+
+        <div class="card-grid">
+            <div class="card">
+                <div class="card-icon">&#128187;</div>
+                <h4>Multi-stage Ready</h4>
+                <p>
+                    The <code>Dockerfile</code> uses a single <code>python:3.13-slim</code>
+                    stage. System dependencies for EasyOCR, pdf2image, and OpenCV are installed
+                    in under 100 MB.
+                </p>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#128274;</div>
+                <h4>Health Check</h4>
+                <p>
+                    Docker <code>HEALTHCHECK</code> pings <code>/health</code> every 30s.
+                    AWS ECS uses this for automatic container replacement.
+                </p>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#128200;</div>
+                <h4>Persistent Volume</h4>
+                <p>
+                    The <code>chroma_db/</code> vector store directory is mounted as a
+                    Docker volume so embeddings survive container restarts.
+                </p>
+            </div>
+        </div>
+
+        <pre>
+<span class="cm"># Build the image</span>
+docker build -t rag-chatbot .
+
+<span class="cm"># Run locally (with API keys)</span>
+docker run -p 8000:8000 -p 8100:8100 \
+  -e GROQ_API_KEY=gsk_your_key \
+  -e TAVILY_API_KEY=tvly_your_key \
+  -v chroma_data:/app/chroma_db \
+  rag-chatbot
+
+<span class="cm"># Tag and push to ECR</span>
+aws ecr create-repository --repository-name rag-chatbot
+docker tag rag-chatbot:latest \
+  <span class="num">&lt;account&gt;</span>.dkr.ecr.<span class="num">&lt;region&gt;</span>.amazonaws.com/rag-chatbot:latest
+docker push <span class="num">&lt;account&gt;</span>.dkr.ecr.<span class="num">&lt;region&gt;</span>.amazonaws.com/rag-chatbot:latest</pre>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- 5. AWS EC2 + NGINX + FAIL2BAN -->
+    <!-- ================================================================ -->
+    <div class="section" id="aws">
+        <div class="section-header">
+            <h2><span class="num">5</span> AWS EC2 &mdash; Nginx &mdash; fail2ban</h2>
+            <p>Production-ready deployment with security hardening on a single Ubuntu 22.04 instance.</p>
+        </div>
+
+        <div class="card-grid">
+            <div class="card">
+                <div class="card-icon">&#127963;</div>
+                <h4>EC2 Setup</h4>
+                <p>
+                    <strong>Instance type:</strong> <code>t3.medium</code> (2 vCPU, 4 GB RAM).
+                    <strong>AMI:</strong> Ubuntu 22.04 LTS.
+                    <strong>Security group:</strong> ports 22 (SSH), 80 (HTTP), 443 (HTTPS) from 0.0.0.0/0.
+                    An EFS volume is mounted at <code>/mnt/efs</code> for ChromaDB persistence.
+                </p>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#128752;</div>
+                <h4>Nginx Configuration</h4>
+                <p>
+                    Nginx acts as a reverse proxy, forwarding requests to Uvicorn on port 8000.
+                    It handles SSL termination (via Let's Encrypt), static file caching, and
+                    adds security headers (HSTS, X-Frame-Options, etc.).
+                </p>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#128737;</div>
+                <h4>fail2ban Security</h4>
+                <p>
+                    fail2ban monitors SSH authentication logs. After 5 failed login attempts
+                    within 10 minutes, the offending IP is banned for 24 hours. This protects
+                    against brute-force attacks on the EC2 instance.
+                </p>
+            </div>
+        </div>
+
+        <pre>
+<span class="cm"># ─── EC2 User Data Script ───</span>
+<span class="cm">#!/bin/bash</span>
+apt-get update
+apt-get install -y docker.io nginx fail2ban
+
+<span class="cm"># Start Docker</span>
+systemctl enable docker
+systemctl start docker
+
+<span class="cm"># Pull &amp; run the container</span>
+aws ecr get-login-password --region us-east-1 | \
+  docker login --username AWS --password-stdin \
+  <span class="num">&lt;account&gt;</span>.dkr.ecr.us-east-1.amazonaws.com
+docker pull <span class="num">&lt;account&gt;</span>.dkr.ecr.us-east-1.amazonaws.com/rag-chatbot:latest
+docker run -d -p 127.0.0.1:8000:8000 \
+  -e GROQ_API_KEY=<span class="str">"..."</span> \
+  -e TAVILY_API_KEY=<span class="str">"..."</span> \
+  -v /mnt/efs/chroma_db:/app/chroma_db \
+  <span class="num">&lt;account&gt;</span>.dkr.ecr.us-east-1.amazonaws.com/rag-chatbot:latest
+
+<span class="cm"># ─── Nginx Config (/etc/nginx/sites-available/rag) ───</span>
+server {
+    listen 80;
+    server_name _;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_read_timeout 120s;
+    }
+
+    location /static/ {
+        alias /app/frontend/;
+        expires 7d;
+    }
+}
+
+<span class="cm"># ─── fail2ban Jail (/etc/fail2ban/jail.local) ───</span>
+[sshd]
+enabled = true
+port = 22
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = 5
+bantime = 86400
+findtime = 600</pre>
+
+        <div class="card-grid" style="margin-top:16px;">
+            <div class="card">
+                <div class="card-icon">&#128274;</div>
+                <h4>Security Headers (Nginx)</h4>
+                <p>
+                    <code>add_header X-Frame-Options DENY;</code><br />
+                    <code>add_header X-Content-Type-Options nosniff;</code><br />
+                    <code>add_header Strict-Transport-Security "max-age=31536000";</code>
+                </p>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#128200;</div>
+                <h4>Monitoring</h4>
+                <p>
+                    <code>docker logs</code> for application logs, <code>fail2ban-client status sshd</code> for banned IPs,
+                    and CloudWatch for EC2 metrics (CPU, memory, network).
+                </p>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#128260;</div>
+                <h4>HTTPS (Let's Encrypt)</h4>
+                <p>
+                    <code>certbot --nginx -d yourdomain.com</code> for free SSL certificates.
+                    Auto-renewal via systemd timer.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- 6. RAG PIPELINE -->
+    <!-- ================================================================ -->
+    <div class="section" id="rag-pipeline">
+        <div class="section-header">
+            <h2><span class="num">6</span> RAG Pipeline — End to End</h2>
+            <p>How a document becomes a grounded, cited answer.</p>
+        </div>
+
+        <div class="diagram">
+            <div class="diagram-row">
+                <div class="diagram-box">
+                    <span class="d-icon">&#128196;</span>
+                    <span class="d-label">Upload PDF/DOCX/TXT</span>
+                    <span class="d-sub">multipart POST</span>
+                </div>
+                <div class="arrow-down" style="display:inline; padding:0 8px;">&#8594;</div>
+                <div class="diagram-box">
+                    <span class="d-icon">&#9986;</span>
+                    <span class="d-label">Extract Text</span>
+                    <span class="d-sub">pypdf / docx / OCR</span>
+                </div>
+                <div class="arrow-down" style="display:inline; padding:0 8px;">&#8594;</div>
+                <div class="diagram-box">
+                    <span class="d-icon">&#128214;</span>
+                    <span class="d-label">Chunk &amp; Embed</span>
+                    <span class="d-sub">500 chars, 50 overlap</span>
+                </div>
+                <div class="arrow-down" style="display:inline; padding:0 8px;">&#8594;</div>
+                <div class="diagram-box">
+                    <span class="d-icon">&#128451;</span>
+                    <span class="d-label">Store in ChromaDB</span>
+                    <span class="d-sub">+ BM25 index rebuild</span>
+                </div>
+            </div>
+            <div style="color:#475569; font-size:13px; padding:12px 0;">&mdash;&mdash;&mdash; User asks a question &mdash;&mdash;&mdash;</div>
+            <div class="diagram-row">
+                <div class="diagram-box primary">
+                    <span class="d-icon">&#129302;</span>
+                    <span class="d-label">5-Agent Orchestrator</span>
+                    <span class="d-sub">LangGraph state machine</span>
+                </div>
+                <div class="arrow-down" style="display:inline; padding:0 8px;">&#8594;</div>
+                <div class="diagram-box">
+                    <span class="d-icon">&#128269;</span>
+                    <span class="d-label">Retrieve &amp; Rerank</span>
+                    <span class="d-sub">hybrid + cross-encoder</span>
+                </div>
+                <div class="arrow-down" style="display:inline; padding:0 8px;">&#8594;</div>
+                <div class="diagram-box">
+                    <span class="d-icon">&#9889;</span>
+                    <span class="d-label">Generate Answer</span>
+                    <span class="d-sub">Groq Llama 3.3 70B</span>
+                </div>
+                <div class="arrow-down" style="display:inline; padding:0 8px;">&#8594;</div>
+                <div class="diagram-box">
+                    <span class="d-icon">&#128200;</span>
+                    <span class="d-label">Cache &amp; Return</span>
+                    <span class="d-sub">+ inline citations [1][2]</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- 7. DESIGN DECISIONS -->
+    <!-- ================================================================ -->
+    <div class="section" id="decisions">
+        <div class="section-header">
+            <h2><span class="num">7</span> Key Design Decisions</h2>
+            <p>Trade-offs and rationale behind the major architectural choices.</p>
+        </div>
+
+        <div class="card-grid">
+            <div class="card">
+                <h4>Why LangGraph over LangChain's LCEL?</h4>
+                <p>
+                    LCEL (LangChain Expression Language) is great for linear chains but
+                    struggles with branching, looping, and state management. LangGraph's
+                    explicit node/edge model maps directly to the critique-retry loop,
+                    making it far easier to debug and extend.
+                </p>
+            </div>
+            <div class="card">
+                <h4>Why ChromaDB over Pinecone/Weaviate?</h4>
+                <p>
+                    Zero external dependencies. ChromaDB is an embedded database that
+                    persists to disk — no cloud service, no API keys, no network latency.
+                    Perfect for a self-contained deployment on a single EC2 instance.
+                </p>
+            </div>
+            <div class="card">
+                <h4>Why BM25 in addition to embeddings?</h4>
+                <p>
+                    Dense embeddings (sentence-transformers) excel at semantic search but
+                    can miss exact keyword matches — especially for technical terms, code
+                    snippets, and proper names. BM25 catches these cases. The hybrid
+                    approach with RRF fusion gives the best of both worlds.
+                </p>
+            </div>
+            <div class="card">
+                <h4>Why a cross-encoder reranker?</h4>
+                <p>
+                    Bi-encoder embeddings (like <code>all-MiniLM-L6-v2</code>) are fast but
+                    approximate. A cross-encoder scores each (query, document) pair jointly,
+                    producing much more accurate relevance judgments. The reranker only runs
+                    on the top-K results, so the latency impact is minimal.
+                </p>
+            </div>
+            <div class="card">
+                <h4>Why Nginx in front of Uvicorn?</h4>
+                <p>
+                    While Uvicorn is a competent HTTP server, Nginx provides SSL termination,
+                    static file serving with caching, request buffering, rate limiting, and
+                    security headers — all handled by a battle-tested web server. This also
+                    makes it trivial to add a second Uvicorn worker for horizontal scaling.
+                </p>
+            </div>
+            <div class="card">
+                <h4>Why fail2ban?</h4>
+                <p>
+                    EC2 instances are constantly probed by automated SSH brute-force attacks.
+                    fail2ban monitors auth logs and dynamically blocks offending IPs via
+                    iptables. It's lightweight, zero-maintenance, and highly effective.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- FOOTER -->
+    <!-- ================================================================ -->
+    <footer style="text-align:center; padding:32px 24px; border-top:1px solid rgba(255,255,255,0.04); color:#475569; font-size:13px;">
+        Built by <strong style="color:#94a3b8;">Fawad Muhammad Awais</strong> &middot;
+        Super RAG System &middot; 2025
+    </footer>
+
+</body>
+</html>
