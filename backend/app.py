@@ -5,6 +5,8 @@ FastAPI Application — RAG Chatbot Backend
 Routes
 ------
 - ``GET  /``                     — Serve the frontend UI
+- ``GET  /rag``                  — RAG chatbot page
+- ``GET  /architecture``         — Architecture docs page
 - ``POST /chats/new``            — Create a new chat session
 - ``GET  /chats``                — List all chats
 - ``DELETE /chats/{chat_id}``    — Delete a chat + its vector data
@@ -12,15 +14,10 @@ Routes
 - ``POST /chats/{chat_id}/chat`` — Ask a question (returns answer + citations)
 - ``GET  /chats/{chat_id}/history`` — Retrieve chat message history
 - ``GET  /health``               — Health check
-
-Lifecycle
----------
-The MCP server is started in a background thread during the FastAPI lifespan.
 """
 
 import json
 import logging
-import threading
 import uuid
 from contextlib import asynccontextmanager
 from typing import List
@@ -38,20 +35,13 @@ from backend.document_processor import (
 )
 from backend.embedding_store import VectorStore
 from backend.chat_engine import ChatEngine
-from backend.agentic_orchestrator import invalidate_chat_cache
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Globals
-# ---------------------------------------------------------------------------
 vector_store = VectorStore()
 chat_engine = ChatEngine(vector_store)
 
 
-# ---------------------------------------------------------------------------
-# Chat metadata persistence
-# ---------------------------------------------------------------------------
 def _load_chat_metadata() -> dict:
     try:
         with open(Config.CHAT_META_FILE, "r") as f:
@@ -65,43 +55,36 @@ def _save_chat_metadata(meta: dict):
         json.dump(meta, f, indent=2)
 
 
-# ---------------------------------------------------------------------------
-# Lifespan — start the MCP server background thread
-# ---------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Start MCP server in a daemon thread
-    try:
-        from backend.mcp_server import run_mcp_server
-
-        mcp_thread = threading.Thread(target=run_mcp_server, daemon=True)
-        mcp_thread.start()
-        logger.info("MCP server thread started")
-    except Exception as exc:
-        logger.warning("MCP server could not start (non-fatal): %s", exc)
-
+    logger.info("Application starting")
     yield
     logger.info("Shutting down")
 
 
-# ---------------------------------------------------------------------------
-# App instance
-# ---------------------------------------------------------------------------
 app = FastAPI(
     title="RAG Chatbot",
     version="2.0.0",
     lifespan=lifespan,
 )
 chat_metadata = _load_chat_metadata()
-app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
 
-# ---------------------------------------------------------------------------
-# Routes
-# ---------------------------------------------------------------------------
 @app.get("/", response_class=HTMLResponse)
 async def serve_ui():
     with open("frontend/index.html", "r") as f:
+        return f.read()
+
+
+@app.get("/rag", response_class=HTMLResponse)
+async def serve_rag():
+    with open("frontend/rag.html", "r") as f:
+        return f.read()
+
+
+@app.get("/architecture", response_class=HTMLResponse)
+async def serve_architecture():
+    with open("frontend/architecture.html", "r") as f:
         return f.read()
 
 
@@ -110,7 +93,6 @@ async def health():
     return {"status": "ok"}
 
 
-# -- Chat management ---------------------------------------------------------
 @app.post("/chats/new")
 async def create_chat(name: str = Form("New Chat")):
     chat_id = str(uuid.uuid4())
@@ -135,7 +117,6 @@ async def delete_chat(chat_id: str):
     return {"status": "deleted"}
 
 
-# -- Document upload ---------------------------------------------------------
 @app.post("/chats/{chat_id}/upload")
 async def upload_files(chat_id: str, files: List[UploadFile] = File(...)):
     if chat_id not in chat_metadata:
@@ -173,11 +154,9 @@ async def upload_files(chat_id: str, files: List[UploadFile] = File(...)):
             )
 
     vector_store.add_documents(chat_id, all_chunks, all_metadatas)
-    invalidate_chat_cache(chat_id)
     return {"status": "success", "chunks": len(all_chunks)}
 
 
-# -- Chat (question answering) -----------------------------------------------
 @app.post("/chats/{chat_id}/chat")
 async def chat(chat_id: str, question: str = Form(...)):
     if chat_id not in chat_metadata:
@@ -192,7 +171,6 @@ async def chat(chat_id: str, question: str = Form(...)):
     }
 
 
-# -- History -----------------------------------------------------------------
 @app.get("/chats/{chat_id}/history")
 async def get_history(chat_id: str):
     if chat_id not in chat_metadata:

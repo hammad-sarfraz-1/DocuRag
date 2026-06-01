@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fawad Muhammad Awais — AI Engineer</title>
+    <title>Muhammad Owais — AI Engineer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <style>
@@ -113,10 +113,11 @@
             background: rgba(99,102,241,0.12);
             border: 1px solid rgba(99,102,241,0.2);
             color: #a5b4fc;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 500;
             margin-bottom: 24px;
-            letter-spacing: 0.3px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
         }
 
         .hero h1 {
@@ -160,11 +161,11 @@
         .btn {
             display: inline-flex;
             align-items: center;
-            gap: 10px;
-            padding: 16px 32px;
-            border-radius: 16px;
+            justify-content: center;
+            padding: 14px 28px;
+            border-radius: 12px;
             font-weight: 600;
-            font-size: 16px;
+            font-size: 15px;
             text-decoration: none;
             transition: all 0.25s ease;
             cursor: pointer;
@@ -193,31 +194,29 @@
             border-color: rgba(99,102,241,0.3);
         }
 
-        .btn-icon { font-size: 20px; }
-
         /* ─── TECH STRIP ─── */
         .tech-strip {
             display: flex;
-            gap: 32px;
+            gap: 24px;
             flex-wrap: wrap;
             justify-content: center;
-            margin-top: 48px;
-            padding: 20px 28px;
+            margin-top: 40px;
+            padding: 16px 24px;
             background: rgba(255,255,255,0.02);
-            border-radius: 16px;
+            border-radius: 12px;
             border: 1px solid rgba(255,255,255,0.04);
             animation: fadeUp 1.2s ease;
         }
         .tech-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            color: #64748b;
-            font-size: 13px;
+            gap: 6px;
+            color: #94a3b8;
+            font-size: 12px;
             font-weight: 500;
         }
         .tech-dot {
-            width: 8px; height: 8px;
+            width: 6px; height: 6px;
             border-radius: 50%;
             display: inline-block;
         }
@@ -231,17 +230,17 @@
         /* ─── FEATURES ─── */
         .features {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 14px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
             width: 100%;
-            margin-top: 40px;
+            margin-top: 32px;
             animation: fadeUp 1.4s ease;
         }
         .feature-card {
             background: rgba(255,255,255,0.02);
             border: 1px solid rgba(255,255,255,0.05);
-            border-radius: 14px;
-            padding: 18px 20px;
+            border-radius: 12px;
+            padding: 16px;
             text-align: center;
             transition: 0.2s;
         }
@@ -249,9 +248,8 @@
             background: rgba(255,255,255,0.04);
             border-color: rgba(99,102,241,0.15);
         }
-        .feature-card .f-icon { font-size: 24px; margin-bottom: 8px; }
-        .feature-card h4 { font-size: 14px; font-weight: 600; color: #e2e8f0; }
-        .feature-card p { font-size: 12px; color: #64748b; margin-top: 4px; line-height: 1.5; }
+        .feature-card h4 { font-size: 13px; font-weight: 600; color: #e2e8f0; margin-bottom: 6px; }
+        .feature-card p { font-size: 12px; color: #64748b; line-height: 1.5; }
 
         /* ─── FOOTER ─── */
         footer {
@@ -265,16 +263,16 @@
             margin-top: auto;
         }
         footer .hire-msg {
-            font-size: 15px;
+            font-size: 14px;
             color: #94a3b8;
             line-height: 1.6;
+            margin-bottom: 12px;
         }
-        footer .hire-msg .emoji { font-size: 20px; }
         footer .hire-msg strong { color: #c7d2fe; font-weight: 600; }
         footer .tagline {
-            font-size: 12px;
+            font-size: 11px;
             color: #475569;
-            margin-top: 6px;
+            letter-spacing: 0.5px;
         }
 
         /* ─── ANIMATIONS ─── */
@@ -288,8 +286,7 @@
             nav { padding: 14px 16px; }
             nav .nav-links a { margin-left: 14px; font-size: 13px; }
             .actions { flex-direction: column; align-items: stretch; }
-            .btn { justify-content: center; }
-            .tech-strip { gap: 16px; }
+            .tech-strip { gap: 16px; flex-direction: column; align-items: center; }
         }
     </style>
 </head>
@@ -298,45 +295,40 @@
     <div class="bg-glow bg-glow-1"></div>
     <div class="bg-glow bg-glow-2"></div>
 
-    <!-- NAV -->
     <nav>
-        <div class="brand">FMA<span>.</span></div>
+        <div class="brand">Muhammad Owais<span>.</span></div>
         <div class="nav-links">
             <a href="/rag">RAG Chatbot</a>
             <a href="/architecture">Architecture</a>
         </div>
     </nav>
 
-    <!-- MAIN -->
     <div class="container">
 
         <div class="hero">
-            <div class="badge">&#9733; AI Engineer — Recruitment Assessment</div>
+            <div class="badge">AI Engineer Assessment</div>
             <div class="title-role">
-                <strong>Fawad Muhammad Awais</strong>
+                <strong>Muhammad Owais</strong>
                 &middot; Candidate for
                 <strong>AI Engineer Intern</strong>
             </div>
-            <h1>Multi-Agent<br />Super RAG System</h1>
+            <h1>Multi-Agent<br />RAG System</h1>
             <p class="subtitle">
-                An autonomous, production-grade Retrieval-Augmented Generation chatbot
-                powered by 5 specialized AI agents, multi-strategy retrieval, and
+                A production ready RAG chatbot
+                powered by 5 specialized AI agents, multi strategy retrieval and
                 deployed with Docker + Nginx on AWS EC2.
             </p>
 
             <div class="actions">
                 <a href="/rag" class="btn btn-primary">
-                    <span class="btn-icon">&#9889;</span>
                     Test the RAG
                 </a>
                 <a href="/architecture" class="btn btn-secondary">
-                    <span class="btn-icon">&#128196;</span>
                     View Architecture
                 </a>
             </div>
         </div>
 
-        <!-- TECH STRIP -->
         <div class="tech-strip">
             <span class="tech-item"><span class="tech-dot groq"></span> Groq LLM</span>
             <span class="tech-item"><span class="tech-dot chroma"></span> ChromaDB</span>
@@ -346,25 +338,20 @@
             <span class="tech-item"><span class="tech-dot mcp"></span> MCP Protocol</span>
         </div>
 
-        <!-- FEATURES -->
         <div class="features">
             <div class="feature-card">
-                <div class="f-icon">&#129302;</div>
                 <h4>5 Agentic Agents</h4>
                 <p>Query Planner &rarr; Retrieval &rarr; Critic &rarr; Synthesis &rarr; Cache</p>
             </div>
             <div class="feature-card">
-                <div class="f-icon">&#128270;</div>
                 <h4>4 Retrieval Strategies</h4>
                 <p>Vector &middot; BM25 &middot; Hybrid &middot; Web — auto-routed</p>
             </div>
             <div class="feature-card">
-                <div class="f-icon">&#9989;</div>
                 <h4>Self-Critique Loop</h4>
                 <p>Autonomous reformulation when context is insufficient</p>
             </div>
             <div class="feature-card">
-                <div class="f-icon">&#9889;</div>
                 <h4>Semantic Cache</h4>
                 <p>Embedding-based dedup &mdash; sub-millisecond repeat answers</p>
             </div>
@@ -372,18 +359,13 @@
 
     </div>
 
-    <!-- FOOTER -->
     <footer>
         <div class="hire-msg">
-            <span class="emoji">&#128153;</span>
-            Built with care by <strong>Fawad Muhammad Awais</strong>
-            <span class="emoji">&#128153;</span><br />
-            I bring strong skills in Python, LLMs, vector databases, Docker,
-            and cloud deployment. I'd love to contribute to your team!
-            <span style="display:inline-block; margin-top:6px; font-size:22px;">&#128591; &#128522; &#128170;</span>
+            Built  by <strong>Muhammad Owais</strong><br />
+            I bring strong skills in Python, LLMs, vector databases, Docker and cloud deployment.<br />I'd love to contribute to your team.
         </div>
         <div class="tagline">
-            Multi-Agent Super RAG &middot; FastAPI &middot; LangGraph &middot; ChromaDB &middot; MCP &middot; AWS
+            MULTI-AGENT SUPER RAG &middot; FASTAPI &middot; LANGGRAPH &middot; CHROMADB &middot; MCP &middot; AWS
         </div>
     </footer>
 

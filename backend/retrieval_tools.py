@@ -1,21 +1,4 @@
-"""
-Multi-Strategy Retrieval Toolkit
-=================================
-
-Provides the retrieval layer for the Super RAG system:
-
-- **Vector search** via ChromaDB (dense embeddings)
-- **BM25 keyword search** (sparse lexical)
-- **Hybrid search** (weighted fusion of vector + BM25)
-- **Web search** via Tavily
-- **Cross-encoder reranking** for precision
-- **Multi-source routing** — selects best strategy based on query type
-
-All functions return a consistent ``RetrievalResult`` format.
-"""
-
 import logging
-import math
 import re
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
@@ -28,33 +11,24 @@ logger = logging.getLogger(__name__)
 vector_store = VectorStore()
 
 
-# ---------------------------------------------------------------------------
-# Data types
-# ---------------------------------------------------------------------------
 @dataclass
 class RetrievalResult:
     text: str
     metadata: dict = field(default_factory=dict)
     score: float = 0.0
-    source: str = ""  # "vector", "bm25", "web", etc.
+    source: str = ""
 
 
-# ---------------------------------------------------------------------------
-# BM25 (keyword) index — one per chat
-# ---------------------------------------------------------------------------
 class BM25Index:
-    """Simple BM25 index built from document chunks."""
-
     def __init__(self, k1: float = 1.5, b: float = 0.75):
         self.k1 = k1
         self.b = b
-        self._index: dict[str, "BM25Set"] = {}
+        self._index: dict[str, "BM25Okapi"] = {}
 
     def _tokenize(self, text: str) -> List[str]:
         return re.findall(r"\w+", text.lower())
 
     def build(self, chat_id: str, documents: List[str]):
-        """Build or rebuild the BM25 index for a chat."""
         from rank_bm25 import BM25Okapi
 
         tokenized = [self._tokenize(doc) for doc in documents]
@@ -62,7 +36,6 @@ class BM25Index:
         self._index[chat_id] = bm25
 
     def search(self, chat_id: str, query: str, k: int) -> List[Tuple[int, float]]:
-        """Return list of (doc_index, score) tuples."""
         if chat_id not in self._index:
             return []
         bm25 = self._index[chat_id]
@@ -75,7 +48,6 @@ _bm25_index = BM25Index()
 
 
 def _ensure_bm25_index(chat_id: str):
-    """Lazily build BM25 index if it doesn't exist for this chat."""
     if chat_id not in _bm25_index._index:
         docs = vector_store.get_all_documents(chat_id)
         if docs:
@@ -83,17 +55,12 @@ def _ensure_bm25_index(chat_id: str):
 
 
 def rebuild_bm25_index(chat_id: str):
-    """Force rebuild after document upload."""
     docs = vector_store.get_all_documents(chat_id)
     if docs:
         _bm25_index.build(chat_id, docs)
 
 
-# ---------------------------------------------------------------------------
-# Individual retrieval strategies
-# ---------------------------------------------------------------------------
 def search_vector(chat_id: str, query: str, k: int = Config.RETRIEVAL_K) -> List[RetrievalResult]:
-    """Dense vector search via ChromaDB sentence embeddings."""
     results = vector_store.similarity_search_with_metadata(chat_id, query, k=k)
     out = []
     for text, meta in results:
@@ -107,7 +74,6 @@ def search_vector(chat_id: str, query: str, k: int = Config.RETRIEVAL_K) -> List
 
 
 def search_bm25(chat_id: str, query: str, k: int = Config.RETRIEVAL_K) -> List[RetrievalResult]:
-    """Lexical BM25 keyword search."""
     _ensure_bm25_index(chat_id)
     all_docs = vector_store.get_all_documents(chat_id)
     hits = _bm25_index.search(chat_id, query, k=k)
@@ -131,11 +97,9 @@ def search_hybrid(
     w_vec: float = Config.HYBRID_SEARCH_WEIGHT_VECTOR,
     w_bm25: float = Config.HYBRID_SEARCH_WEIGHT_BM25,
 ) -> List[RetrievalResult]:
-    """Fuse vector and BM25 results with Reciprocal Rank Fusion."""
     vec_results = search_vector(chat_id, query, k=k * 2)
     bm25_results = search_bm25(chat_id, query, k=k * 2)
 
-    # RRF merge
     rrf_scores: dict[int, float] = {}
     all_texts: dict[int, RetrievalResult] = {}
     idx = 0
@@ -155,7 +119,6 @@ def search_hybrid(
 
 
 def search_web(query: str, k: int = 3) -> List[RetrievalResult]:
-    """Web search via Tavily API."""
     try:
         from tavily import TavilyClient
 
@@ -175,63 +138,18 @@ def search_web(query: str, k: int = 3) -> List[RetrievalResult]:
         return []
 
 
-# ---------------------------------------------------------------------------
-# Multi-source router — picks strategy based on query analysis
-# ---------------------------------------------------------------------------
-def route_query(query: str, has_documents: bool) -> str:
-    """Decide retrieval strategy: 'vector', 'hybrid', 'web', or 'hybrid+web'.
+def search_all_sources(chat_id: str, query: str, use_web: bool = True) -> List[RetrievalResult]:
+    """Always search documents first (hybrid), optionally supplement with web."""
+    doc_results = search_hybrid(chat_id, query)
 
-    Heuristic rules (can be replaced by LLM-based routing):
-    - Short factual queries → hybrid (best recall)
-    - Queries about current events → web
-    - Technical queries → hybrid+web
-    - No documents uploaded → web
-    """
-    query_lower = query.lower()
-
-    if not has_documents:
-        return "web"
-
-    current_event_keywords = {"current", "latest", "news", "today", "2024", "2025", "2026"}
-    if current_event_keywords & set(query_lower.split()):
-        return "hybrid+web"
-
-    code_keywords = {"code", "function", "api", "snippet", "example", "implementation"}
-    if code_keywords & set(query_lower.split()):
-        return "hybrid+web"
-
-    return "hybrid"
-
-
-def execute_strategy(
-    strategy: str,
-    chat_id: str,
-    query: str,
-    k: int = Config.RETRIEVAL_K,
-) -> List[RetrievalResult]:
-    """Execute a named retrieval strategy."""
-    if strategy == "vector":
-        return search_vector(chat_id, query, k=k)
-    elif strategy == "bm25":
-        return search_bm25(chat_id, query, k=k)
-    elif strategy == "hybrid":
-        return search_hybrid(chat_id, query, k=k)
-    elif strategy == "web":
-        return search_web(query, k=3)
-    elif strategy == "hybrid+web":
-        results = search_hybrid(chat_id, query, k=k)
+    if use_web and Config.TAVILY_API_KEY:
         web_results = search_web(query, k=2)
-        results.extend(web_results)
-        return results
-    return search_vector(chat_id, query, k=k)
+        doc_results.extend(web_results)
+
+    return doc_results
 
 
-# ---------------------------------------------------------------------------
-# Cross-encoder reranker
-# ---------------------------------------------------------------------------
 class Reranker:
-    """Thin wrapper around a cross-encoder model."""
-
     def __init__(self, model_name: str = Config.RERANKER_MODEL):
         self.model_name = model_name
         self._model = None
@@ -240,7 +158,6 @@ class Reranker:
         if self._model is None:
             try:
                 from sentence_transformers import CrossEncoder
-
                 self._model = CrossEncoder(self.model_name)
                 logger.info("Reranker loaded: %s", self.model_name)
             except Exception as exc:
@@ -249,7 +166,6 @@ class Reranker:
     def rerank(
         self, query: str, results: List[RetrievalResult], keep: int = Config.RERANK_KEEP
     ) -> List[RetrievalResult]:
-        """Re-rank results by cross-encoder score and return top-k."""
         self._lazy_load()
         if self._model is None or not results:
             return results[:keep]
@@ -271,66 +187,3 @@ class Reranker:
 
 
 reranker = Reranker()
-
-
-# ---------------------------------------------------------------------------
-# Code interpreter (sandboxed)
-# ---------------------------------------------------------------------------
-def interpret_code(code: str, timeout: int = Config.CODE_TIMEOUT_SECONDS) -> str:
-    """Execute Python code in an isolated subprocess and return output.
-
-    Security: runs with restricted globals, no imports, time-bounded.
-    """
-    import os
-    import subprocess
-    import sys
-    import tempfile
-
-    if not Config.ENABLE_CODE_INTERPRETER:
-        return "Code interpreter is disabled."
-
-    sanitized = []
-    for line in code.split("\n"):
-        if line.strip().startswith("import ") or line.strip().startswith("from "):
-            sanitized.append(f"# {line}  (blocked by sandbox)")
-        else:
-            sanitized.append(line)
-    safe_code = "\n".join(sanitized)
-
-    wrapper = (
-        "import sys, json, math, textwrap, collections, datetime\n"
-        "def run():\n"
-        + "\n".join("    " + line for line in safe_code.split("\n"))
-        + "\n\n"
-        "try:\n"
-        "    result = run()\n"
-        "    if result is not None:\n"
-        "        print(repr(result))\n"
-        "except Exception as e:\n"
-        "    print(f'Error: {e}', file=sys.stderr)\n"
-    )
-
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".py", delete=False, encoding="utf-8"
-        ) as f:
-            f.write(wrapper)
-            tmppath = f.name
-
-        proc = subprocess.run(
-            [sys.executable, tmppath],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-        os.unlink(tmppath)
-
-        output = proc.stdout.strip()
-        error = proc.stderr.strip()
-        if error:
-            output = f"{output}\n--- stderr ---\n{error}" if output else error
-        return output or "(no output)"
-    except subprocess.TimeoutExpired:
-        return f"(execution timed out after {timeout}s)"
-    except Exception as exc:
-        return f"(execution error: {exc})"
