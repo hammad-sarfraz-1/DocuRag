@@ -327,7 +327,7 @@
                 </p>
                 <div class="tech-tags">
                     <span class="tech-tag">Docker</span>
-                    <span class="tech-tag">AWS EC2</span>
+                    <span class="tech-tag">Cloud VPS</span>
                     <span class="tech-tag">Nginx</span>
                     <span class="tech-tag">fail2ban</span>
                     <span class="tech-tag">Linux / Ubuntu</span>
@@ -356,7 +356,7 @@
             <div class="arrow-v"></div>
 
             <div class="diag-group" style="width: 100%; max-width: 400px;">
-                <span class="diag-group-title">AWS EC2 Host (Ubuntu)</span>
+                <span class="diag-group-title">Cloud Server (Ubuntu)</span>
                 
                 <div class="diag-box highlight" style="width: 100%; margin-bottom: 16px;">
                     <i data-lucide="shield-alert" size="20"></i>
@@ -483,19 +483,19 @@
             </div>
 
             <div class="story-card">
-                <h4><i data-lucide="server"></i> Why AWS EC2 over Vercel/Heroku?</h4>
+                <h4><i data-lucide="server"></i> Why a self-managed cloud VM over Vercel/Heroku?</h4>
                 <p>
                     Managed services are easy, but they abstract away the system layer and get incredibly expensive when dealing with persistent file storage (like local vector DBs) and long-running websocket/async tasks.
                 </p>
                 <p>
-                    By provisioning my own <strong>AWS EC2</strong> instance, I have total control over the Linux environment. It proves I can manage memory, monitor CPU usage, and build cost-effective infrastructure from scratch.
+                    By provisioning my own <strong>cloud VM</strong> instance, I have total control over the Linux environment. It proves I can manage memory, monitor CPU usage, and build cost-effective infrastructure from scratch.
                 </p>
             </div>
 
             <div class="story-card">
                 <h4><i data-lucide="shield"></i> Nginx & fail2ban: The Hostile Internet</h4>
                 <p>
-                    You don't realize how hostile the internet is until you tail your EC2 auth logs. Within hours of booting my server, I saw automated scripts from random IP addresses trying to brute-force my SSH port (Port 22). 
+                    You don't realize how hostile the internet is until you tail your server's auth logs. Within hours of booting my server, I saw automated scripts from random IP addresses trying to brute-force my SSH port (Port 22). 
                 </p>
                 <p>
                     <span class="good">Here is how I secured the system:</span><br>

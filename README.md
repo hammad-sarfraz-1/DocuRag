@@ -13,7 +13,6 @@ An **agentic Retrieval-Augmented Generation (RAG)** chatbot that lets users uplo
 - [MCP Server](#mcp-server)
 - [Quick Start](#quick-start)
 - [Docker Deployment](#docker-deployment)
-- [AWS Deployment](#aws-deployment)
 - [API Reference](#api-reference)
 - [Project Structure](#project-structure)
 
@@ -96,7 +95,7 @@ An **agentic Retrieval-Augmented Generation (RAG)** chatbot that lets users uplo
 
 | Layer | Choice | Rationale |
 |---|---|---|
-| **Framework** | FastAPI | Async-native, automatic OpenAPI docs, high throughput, easy AWS deployment via Uvicorn |
+| **Framework** | FastAPI | Async-native, automatic OpenAPI docs, high throughput, production-ready ASGI serving via Uvicorn |
 | **Agent Orchestration** | LangGraph | State-graph architecture with explicit node-by-node control — ideal for multi-agent planning → retrieval → critique → synthesis loops |
 | **Vector Store** | ChromaDB | Persistent, embeddable, zero external dependencies. SentenceTransformer integration out of the box. Per-chat collections for clean isolation |
 | **Embeddings** | sentence-transformers (all-MiniLM-L6-v2) | Lightweight (80 MB), fast CPU inference, good semantic quality. Same model powers semantic cache |
@@ -379,41 +378,6 @@ All configuration is driven by environment variables (see `backend/config.py`):
 | **MCP Server** | | |
 | `MCP_HOST` | `127.0.0.1` | MCP server bind address |
 | `MCP_PORT` | `8100` | MCP server port |
-
----
-
-## AWS Deployment
-
-### Option 1: ECS (Fargate)
-
-1. Push the Docker image to Amazon ECR:
-   ```bash
-   aws ecr create-repository --repository-name rag-chatbot
-   docker tag rag-chatbot:latest <account>.dkr.ecr.<region>.amazonaws.com/rag-chatbot:latest
-   docker push <account>.dkr.ecr.<region>.amazonaws.com/rag-chatbot:latest
-   ```
-
-2. Create an ECS cluster + task definition using the image.
-3. Set environment variables (`GROQ_API_KEY`, etc.) in the task definition.
-4. Add an EFS volume mounted at `/app/chroma_db` for persistent vector storage.
-5. Configure ALB with target group on port 8000.
-6. Open the ALB DNS — the frontend is served automatically.
-
-### Option 2: EC2
-
-```bash
-# SSH into your EC2 instance
-sudo yum update -y
-sudo yum install docker -y
-sudo service docker start
-sudo usermod -a -G docker ec2-user
-
-# Pull and run
-docker pull <your-ecr-image>
-docker run -d -p 80:8000 -e GROQ_API_KEY=... <image>
-```
-
-**Important**: Attach an EFS volume to persist the ChromaDB data across restarts.
 
 ---
 
