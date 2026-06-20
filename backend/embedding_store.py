@@ -30,11 +30,27 @@ class VectorStore:
     ):
         collection = self.get_collection(chat_id)
 
-        existing_ids = collection.get()["ids"]
-        if existing_ids:
-            collection.delete(ids=existing_ids)
+        # Figure out which document these chunks belong to. We replace only
+        # THIS document's existing chunks (so re-uploading the same file
+        # refreshes it) while leaving other documents in the chat untouched.
+        source = None
+        if metadatas and metadatas[0]:
+            source = metadatas[0].get("source")
 
-        ids = [f"chunk_{i}" for i in range(len(chunks))]
+        if source:
+            try:
+                collection.delete(where={"source": source})
+            except Exception:
+                pass
+            # Namespace ids by source so chunks from different files never collide.
+            ids = [f"{source}::chunk_{i}" for i in range(len(chunks))]
+        else:
+            # Fallback (no source metadata): preserve old single-doc behaviour.
+            existing_ids = collection.get()["ids"]
+            if existing_ids:
+                collection.delete(ids=existing_ids)
+            ids = [f"chunk_{i}" for i in range(len(chunks))]
+
         collection.add(
             documents=chunks,
             ids=ids,
@@ -71,6 +87,17 @@ class VectorStore:
         data = collection.get(include=["documents"])
         return data.get("documents", [])
 
+    def get_all_documents_with_metadata(
+        self, chat_id: str
+    ) -> List[Tuple[str, dict]]:
+        """Return every chunk as (text, metadata) pairs from a SINGLE get() call,
+        so text and metadata are guaranteed to stay index-aligned."""
+        collection = self.get_collection(chat_id)
+        data = collection.get(include=["documents", "metadatas"])
+        docs = data.get("documents") or []
+        metas = data.get("metadatas") or [{} for _ in docs]
+        return list(zip(docs, metas))
+
     def get_sources(self, chat_id: str) -> List[str]:
         """Return sorted unique source filenames for a chat."""
         collection = self.get_collection(chat_id)
@@ -98,6 +125,14 @@ class VectorStore:
     def get_chunk_count(self, chat_id: str) -> int:
         collection = self.get_collection(chat_id)
         return len(collection.get()["ids"])
+
+    def delete_document(self, chat_id: str, source: str):
+        """Remove a single uploaded document (all its chunks) from a chat."""
+        collection = self.get_collection(chat_id)
+        try:
+            collection.delete(where={"source": source})
+        except Exception:
+            pass
 
     def delete_chat(self, chat_id: str):
         safe_id = self._safe_collection_name(chat_id)
