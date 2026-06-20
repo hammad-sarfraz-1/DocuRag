@@ -3,7 +3,10 @@ from typing import List
 
 from pypdf import PdfReader
 from docx import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+try:
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+except ImportError:  # older langchain (<0.2) kept it under langchain.text_splitter
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from backend.config import Config
 
