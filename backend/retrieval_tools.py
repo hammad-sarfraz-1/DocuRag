@@ -24,16 +24,24 @@ class BM25Index:
         self.k1 = k1
         self.b = b
         self._index: dict[str, "BM25Okapi"] = {}
+        # Keep the exact (text, metadata) list the index was built from, so a
+        # hit index maps back to the right chunk AND its metadata — no second
+        # get() that could return rows in a different order.
+        self._docs: dict[str, List[Tuple[str, dict]]] = {}
 
     def _tokenize(self, text: str) -> List[str]:
         return re.findall(r"\w+", text.lower())
 
-    def build(self, chat_id: str, documents: List[str]):
+    def build(self, chat_id: str, docs_with_meta: List[Tuple[str, dict]]):
         from rank_bm25 import BM25Okapi
 
-        tokenized = [self._tokenize(doc) for doc in documents]
+        tokenized = [self._tokenize(text) for text, _ in docs_with_meta]
         bm25 = BM25Okapi(tokenized, k1=self.k1, b=self.b)
         self._index[chat_id] = bm25
+        self._docs[chat_id] = docs_with_meta
+
+    def docs(self, chat_id: str) -> List[Tuple[str, dict]]:
+        return self._docs.get(chat_id, [])
 
     def search(self, chat_id: str, query: str, k: int) -> List[Tuple[int, float]]:
         if chat_id not in self._index:
@@ -49,13 +57,13 @@ _bm25_index = BM25Index()
 
 def _ensure_bm25_index(chat_id: str):
     if chat_id not in _bm25_index._index:
-        docs = vector_store.get_all_documents(chat_id)
+        docs = vector_store.get_all_documents_with_metadata(chat_id)
         if docs:
             _bm25_index.build(chat_id, docs)
 
 
 def rebuild_bm25_index(chat_id: str):
-    docs = vector_store.get_all_documents(chat_id)
+    docs = vector_store.get_all_documents_with_metadata(chat_id)
     if docs:
         _bm25_index.build(chat_id, docs)
 
@@ -75,14 +83,14 @@ def search_vector(chat_id: str, query: str, k: int = Config.RETRIEVAL_K) -> List
 
 def search_bm25(chat_id: str, query: str, k: int = Config.RETRIEVAL_K) -> List[RetrievalResult]:
     _ensure_bm25_index(chat_id)
-    all_docs = vector_store.get_all_documents(chat_id)
+    docs = _bm25_index.docs(chat_id)
     hits = _bm25_index.search(chat_id, query, k=k)
     out = []
     for idx, score in hits:
-        if idx < len(all_docs):
-            meta = vector_store.get_document_metadata(chat_id, idx)
+        if idx < len(docs):
+            text, meta = docs[idx]
             out.append(RetrievalResult(
-                text=all_docs[idx],
+                text=text,
                 metadata=meta or {},
                 score=score,
                 source="bm25",
@@ -100,22 +108,28 @@ def search_hybrid(
     vec_results = search_vector(chat_id, query, k=k * 2)
     bm25_results = search_bm25(chat_id, query, k=k * 2)
 
-    rrf_scores: dict[int, float] = {}
-    all_texts: dict[int, RetrievalResult] = {}
-    idx = 0
-    for r in vec_results:
-        all_texts[idx] = r
-        rrf_scores[idx] = rrf_scores.get(idx, 0.0) + w_vec / (idx + 60)
-        idx += 1
-    idx = 0
-    for r in bm25_results:
-        rid = len(vec_results) + idx
-        all_texts[rid] = r
-        rrf_scores[rid] = rrf_scores.get(rid, 0.0) + w_bm25 / (idx + 60)
-        idx += 1
+    # Reciprocal Rank Fusion keyed by CHUNK IDENTITY, so a chunk surfaced by both
+    # vector and keyword search has its scores SUMMED (reinforced). This is what
+    # lets a strong keyword match — e.g. a person's name, which only the BM25 side
+    # sees — pull its chunk to the top instead of being drowned by vector scores.
+    RRF_K = 60
+    fused: dict[str, dict] = {}
 
-    sorted_ids = sorted(rrf_scores, key=rrf_scores.get, reverse=True)[:k]
-    return [all_texts[i] for i in sorted_ids]
+    def _key(r: RetrievalResult) -> str:
+        meta = r.metadata or {}
+        if "source" in meta and "chunk_index" in meta:
+            return f"{meta['source']}::{meta['chunk_index']}"
+        return r.text[:200]
+
+    for rank, r in enumerate(vec_results):
+        entry = fused.setdefault(_key(r), {"result": r, "score": 0.0})
+        entry["score"] += w_vec / (RRF_K + rank)
+    for rank, r in enumerate(bm25_results):
+        entry = fused.setdefault(_key(r), {"result": r, "score": 0.0})
+        entry["score"] += w_bm25 / (RRF_K + rank)
+
+    ranked = sorted(fused.values(), key=lambda e: e["score"], reverse=True)[:k]
+    return [e["result"] for e in ranked]
 
 
 def search_web(query: str, k: int = 3) -> List[RetrievalResult]:

@@ -10,9 +10,13 @@ class Config:
     MODEL_NAME = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
 
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
-    CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "500"))
-    CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "50"))
-    RETRIEVAL_K = int(os.getenv("RETRIEVAL_K", "6"))
+    CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
+    CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "150"))
+    RETRIEVAL_K = int(os.getenv("RETRIEVAL_K", "8"))
+    # When a chat holds this few chunks or fewer, skip top-k truncation and feed
+    # every chunk to the LLM (rerank only to order them) so the right document is
+    # always in context. Above this, fall back to ranked top-k retrieval.
+    SMALL_CORPUS_CHUNKS = int(os.getenv("SMALL_CORPUS_CHUNKS", "25"))
 
     PERSIST_DIR = os.getenv("PERSIST_DIR", "./chroma_db")
     CHAT_META_FILE = os.getenv("CHAT_META_FILE", "./chat_metadata.json")
@@ -22,7 +26,7 @@ class Config:
 
     ENABLE_RERANKING = os.getenv("ENABLE_RERANKING", "true").lower() == "true"
     RERANKER_MODEL = os.getenv("RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
-    RERANK_KEEP = int(os.getenv("RERANK_KEEP", "4"))
+    RERANK_KEEP = int(os.getenv("RERANK_KEEP", "6"))
 
     ENABLE_BM25 = os.getenv("ENABLE_BM25", "true").lower() == "true"
     HYBRID_SEARCH_WEIGHT_VECTOR = float(os.getenv("HYBRID_SEARCH_WEIGHT_VECTOR", "0.6"))
