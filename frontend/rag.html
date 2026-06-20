@@ -158,42 +158,6 @@
             overflow: hidden;
         }
 
-        .top-panel {
-            display: flex;
-            gap: 18px;
-            flex-wrap: wrap;
-        }
-
-        .upload-area {
-            flex: 1;
-            min-width: 280px;
-            background: var(--panel);
-            border: 1px solid var(--border);
-            backdrop-filter: blur(16px);
-            border-radius: var(--radius);
-            padding: 20px;
-            box-shadow: var(--shadow);
-        }
-        .upload-area h4 { margin-top: 0; margin-bottom: 6px; font-size: 18px; }
-        .upload-area p { margin-top: 0; color: var(--muted); font-size: 14px; }
-
-        .upload-controls {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-top: 14px;
-        }
-
-        input[type="file"] {
-            flex: 1;
-            min-width: 220px;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid var(--border);
-            color: var(--muted);
-            padding: 12px;
-            border-radius: 12px;
-        }
-
         button {
             border: none;
             border-radius: 12px;
@@ -203,15 +167,15 @@
             transition: 0.2s ease;
         }
 
-        #uploadBtn, #sendBtn {
+        .send-btn {
             background: linear-gradient(135deg, var(--primary), #8b5cf6);
             color: white;
         }
-        #uploadBtn:hover, #sendBtn:hover {
+        .send-btn:hover {
             background: linear-gradient(135deg, var(--primary-hover), #7c3aed);
         }
-
-        .status { margin-top: 14px; color: var(--muted); font-size: 14px; }
+        .attach-btn { background: transparent; color: #94a3b8; }
+        .attach-btn:hover { background: rgba(255,255,255,0.08); color: #c7d2fe; }
 
         /* ─── CHAT ─── */
         .chat-container {
@@ -271,53 +235,175 @@
         }
 
         .citations {
-            margin-top: 10px;
-            padding: 10px 14px;
-            background: rgba(99,102,241,0.08);
-            border: 1px solid rgba(99,102,241,0.18);
-            border-radius: 12px;
-            font-size: 13px;
-            line-height: 1.5;
+            margin-top: 12px;
+            padding: 12px 14px 13px;
+            background: rgba(99,102,241,0.06);
+            border: 1px solid rgba(99,102,241,0.16);
+            border-radius: 14px;
         }
-        .citations strong {
-            color: #a5b4fc;
-            display: block;
-            margin-bottom: 6px;
-            font-size: 12px;
+        .citations-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            font-size: 11px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.6px;
+            color: #a5b4fc;
+            font-weight: 700;
         }
-        .citation-item { padding: 4px 0; color: #c7d2fe; word-break: break-all; }
-        .citation-item .src-name { color: #818cf8; font-weight: 600; }
+        .citations-head .count {
+            background: rgba(99,102,241,0.22);
+            color: #c7d2fe;
+            border-radius: 999px;
+            padding: 1px 8px;
+            font-size: 11px;
+            letter-spacing: 0;
+        }
+        .citation-item {
+            display: flex;
+            gap: 10px;
+            padding: 9px 10px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.05);
+            margin-bottom: 6px;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+        .citation-item:last-child { margin-bottom: 0; }
+        .citation-item:hover {
+            background: rgba(99,102,241,0.10);
+            border-color: rgba(99,102,241,0.30);
+        }
+        .citation-item .badge {
+            flex: 0 0 auto;
+            width: 22px;
+            height: 22px;
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #4f46e5, #6366f1);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .citation-item .src-body { min-width: 0; flex: 1; }
+        .citation-item .src-name {
+            color: #c7d2fe;
+            font-weight: 600;
+            font-size: 12.5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .citation-item .doc-ico { color: #818cf8; flex: 0 0 auto; }
+        .citation-item .src-part {
+            color: #a5b4fc;
+            background: rgba(129,140,248,0.14);
+            border-radius: 6px;
+            padding: 0 6px;
+            font-size: 10.5px;
+            font-weight: 600;
+        }
         .citation-item .src-snippet {
             color: #94a3b8;
             font-size: 12px;
-            display: block;
-            margin-top: 2px;
+            line-height: 1.45;
+            margin-top: 4px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
         }
 
         .input-area {
-            display: flex;
-            gap: 14px;
-            padding: 18px;
+            padding: 16px 18px 20px;
             border-top: 1px solid var(--border);
             background: rgba(255,255,255,0.02);
         }
-        .input-area input {
-            flex: 1;
+        .composer {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
             border: 1px solid var(--border);
             background: rgba(255,255,255,0.05);
-            color: white;
-            padding: 14px 16px;
-            border-radius: 14px;
-            outline: none;
-            font-size: 15px;
+            border-radius: 18px;
+            padding: 8px;
+            transition: border-color .2s ease, box-shadow .2s ease;
         }
-        .input-area input::placeholder { color: #94a3b8; }
-        .input-area input:focus {
+        .composer.focused {
             border-color: rgba(99,102,241,0.5);
             box-shadow: 0 0 0 4px rgba(99,102,241,0.15);
         }
+        .composer-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .composer-row input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            color: white;
+            padding: 10px 4px;
+            outline: none;
+            font-size: 15px;
+        }
+        .composer-row input::placeholder { color: #94a3b8; }
+
+        .icon-btn {
+            flex: 0 0 auto;
+            display: flex; align-items: center; justify-content: center;
+            width: 38px; height: 38px;
+            border-radius: 11px;
+            padding: 0;
+        }
+
+        .attachments {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 2px 4px 0;
+        }
+        .attachments:empty { display: none; }
+        .attach-chip {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(99,102,241,0.10);
+            border: 1px solid rgba(99,102,241,0.22);
+            border-radius: 10px;
+            padding: 6px 10px;
+            font-size: 12.5px;
+            color: #c7d2fe;
+        }
+        .attach-chip .chip-ico { flex: 0 0 auto; opacity: .85; }
+        .attach-chip .chip-name {
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            max-width: 160px;
+        }
+        .attach-chip .chip-status { color: #94a3b8; font-size: 11px; }
+        .attach-chip .chip-remove {
+            border: none;
+            background: transparent;
+            color: inherit;
+            opacity: 0.55;
+            cursor: pointer;
+            width: 16px; height: 16px;
+            border-radius: 6px;
+            padding: 0;
+            margin-left: 2px;
+            font-size: 15px;
+            line-height: 1;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .attach-chip .chip-remove:hover { opacity: 1; background: rgba(255,255,255,0.12); }
+        .attach-chip.done { border-color: rgba(16,185,129,0.30); background: rgba(16,185,129,0.10); color: #6ee7b7; }
+        .attach-chip.done .chip-status { color: #6ee7b7; }
+        .attach-chip.error { border-color: rgba(239,68,68,0.30); background: rgba(239,68,68,0.10); color: #fca5a5; }
+        .attach-chip.error .chip-status { color: #fca5a5; }
+        .spin { animation: spin 0.8s linear infinite; transform-origin: center; }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         .status-badge {
             display: inline-block;
@@ -362,18 +448,6 @@
 
     <!-- MAIN -->
     <div class="main">
-        <div class="top-panel">
-            <div class="upload-area">
-                <h4>Upload Documents</h4>
-                <p>Add PDFs, DOCX, or TXT files to the currently selected chat.</p>
-                <div class="upload-controls">
-                    <input type="file" id="fileInput" multiple accept=".pdf,.docx,.txt" />
-                    <button id="uploadBtn">Upload Files</button>
-                </div>
-                <div id="uploadStatus" class="status"></div>
-            </div>
-        </div>
-
         <div class="chat-container">
             <div class="chat-header">
                 <div>
@@ -392,8 +466,19 @@
             </div>
 
             <div class="input-area">
-                <input type="text" id="questionInput" placeholder="Ask a question about your documents..." />
-                <button id="sendBtn">Send</button>
+                <div class="composer" id="composer">
+                    <div class="attachments" id="attachments"></div>
+                    <div class="composer-row">
+                        <button class="icon-btn attach-btn" id="attachBtn" type="button" title="Attach documents" aria-label="Attach documents">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                        </button>
+                        <input type="text" id="questionInput" placeholder="Ask a question about your documents..." />
+                        <button class="icon-btn send-btn" id="sendBtn" type="button" title="Send" aria-label="Send">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                        </button>
+                    </div>
+                    <input type="file" id="fileInput" multiple accept=".pdf,.docx,.txt" hidden />
+                </div>
             </div>
         </div>
     </div>
@@ -480,6 +565,7 @@
         async function switchChat(chatId) {
             if (currentChatId === chatId) return;
             currentChatId = chatId;
+            clearAttachments();
             await loadChats();
             await loadChatHistory();
         }
@@ -508,26 +594,71 @@
             }
         }
 
-        async function uploadToCurrentChat() {
-            if (!currentChatId) { alert('Please select or create a chat first.'); return; }
+        const CHIP_FILE_ICO = '<svg class="chip-ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+        const CHIP_SPIN = '<svg class="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
+
+        function clearAttachments() {
+            const c = document.getElementById('attachments');
+            if (c) c.innerHTML = '';
+        }
+
+        async function removeDoc(name, chip) {
+            chip.remove();
+            if (!currentChatId) return;
+            try {
+                await fetch(`/chats/${currentChatId}/documents?source=${encodeURIComponent(name)}`, { method: 'DELETE' });
+            } catch (err) {
+                // non-fatal: the card is already gone from the UI
+            }
+        }
+
+        async function handleFiles() {
             const input = document.getElementById('fileInput');
-            const files = input.files;
-            if (files.length === 0) { alert('Select files to upload.'); return; }
+            const files = Array.from(input.files || []);
+            if (files.length === 0) return;
+            if (!currentChatId) { alert('Please select or create a chat first.'); input.value = ''; return; }
+
+            const container = document.getElementById('attachments');
+            const chips = files.map(f => {
+                const chip = document.createElement('div');
+                chip.className = 'attach-chip';
+                chip.innerHTML = CHIP_FILE_ICO +
+                    '<span class="chip-name">' + escapeHtml(f.name) + '</span>' +
+                    '<span class="chip-status">' + CHIP_SPIN + '</span>' +
+                    '<button class="chip-remove" type="button" title="Remove document" aria-label="Remove document">×</button>';
+                chip.querySelector('.chip-remove').addEventListener('click', () => removeDoc(f.name, chip));
+                container.appendChild(chip);
+                return chip;
+            });
+
             const formData = new FormData();
-            for (let file of files) { formData.append('files', file); }
-            const statusDiv = document.getElementById('uploadStatus');
-            statusDiv.innerText = 'Uploading...';
+            for (let f of files) formData.append('files', f);
+
             try {
                 const res = await fetch(`/chats/${currentChatId}/upload`, { method: 'POST', body: formData });
                 const data = await res.json();
                 if (res.ok) {
-                    statusDiv.innerText = data.status + ' \u2013 ' + data.chunks + ' chunks loaded.';
-                    input.value = '';
+                    const byName = {};
+                    (data.files || []).forEach(x => { byName[x.filename] = x.chunks; });
+                    chips.forEach((chip, i) => {
+                        chip.classList.add('done');
+                        const n = byName[files[i].name];
+                        chip.querySelector('.chip-status').textContent = (n != null ? n + ' chunks' : 'added');
+                    });
                 } else {
-                    statusDiv.innerText = 'Error: ' + (data.detail || 'Unknown error');
+                    chips.forEach(chip => {
+                        chip.classList.add('error');
+                        chip.querySelector('.chip-status').textContent = 'failed';
+                    });
+                    addMessage('assistant', 'Upload error: ' + (data.detail || 'Unknown error'));
                 }
             } catch (err) {
-                statusDiv.innerText = 'Upload failed: ' + err.message;
+                chips.forEach(chip => {
+                    chip.classList.add('error');
+                    chip.querySelector('.chip-status').textContent = 'failed';
+                });
+            } finally {
+                input.value = '';
             }
         }
 
@@ -539,6 +670,7 @@
 
             addMessage('user', question);
             questionInput.value = '';
+            clearAttachments();
 
             const formData = new FormData();
             formData.append('question', question);
@@ -567,20 +699,37 @@
             let html = '<strong>' + (role === 'user' ? 'You' : 'Assistant') + '</strong><br>' + escapeHtml(content);
 
             if (role === 'assistant' && citations && citations.length > 0) {
-                html += '<div class="citations"><strong>Sources</strong>';
-                const seen = new Set();
-                let idx = 0;
+                // Collapse multiple chunks of the same file into a single source entry —
+                // one card per document, not one per passage.
+                const groups = [];
+                const bySource = {};
                 for (let c of citations) {
-                    const key = c.source + '|' + c.chunk_index;
-                    if (seen.has(key)) continue;
-                    seen.add(key);
-                    idx++;
-                    const snippet = c.snippet.length > 120 ? c.snippet.substring(0, 120) + '...' : c.snippet;
-                    html += '<div class="citation-item">' +
-                        '<span class="src-name">[' + idx + '] ' + escapeHtml(c.source) + '</span>' +
-                        ' <span class="src-snippet">' + escapeHtml(snippet) + '</span></div>';
+                    if (!(c.source in bySource)) {
+                        bySource[c.source] = { source: c.source, parts: [], snippet: (c.snippet || '').trim() };
+                        groups.push(bySource[c.source]);
+                    }
+                    if (typeof c.chunk_index === 'number') bySource[c.source].parts.push(c.chunk_index + 1);
+                    if (!bySource[c.source].snippet && c.snippet) bySource[c.source].snippet = c.snippet.trim();
                 }
-                html += '</div>';
+                if (groups.length > 0) {
+                    const docIcon = '<svg class="doc-ico" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+                    html += '<div class="citations"><div class="citations-head">Sources <span class="count">' + groups.length + '</span></div>';
+                    let idx = 0;
+                    for (let g of groups) {
+                        idx++;
+                        const n = g.parts.length;
+                        const partLabel = n > 1 ? (n + ' passages') : (n === 1 ? 'part ' + g.parts[0] : '');
+                        const part = partLabel ? '<span class="src-part">' + partLabel + '</span>' : '';
+                        html += '<div class="citation-item">' +
+                            '<span class="badge">' + idx + '</span>' +
+                            '<span class="src-body">' +
+                                '<span class="src-name">' + docIcon + escapeHtml(g.source) + part + '</span>' +
+                                (g.snippet ? '<span class="src-snippet">' + escapeHtml(g.snippet) + '</span>' : '') +
+                            '</span>' +
+                        '</div>';
+                    }
+                    html += '</div>';
+                }
             }
 
             bubble.innerHTML = html;
@@ -591,11 +740,16 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('newChatBtn').addEventListener('click', createNewChat);
-            document.getElementById('uploadBtn').addEventListener('click', uploadToCurrentChat);
             document.getElementById('sendBtn').addEventListener('click', askQuestion);
-            document.getElementById('questionInput').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') askQuestion();
-            });
+            document.getElementById('attachBtn').addEventListener('click', () => document.getElementById('fileInput').click());
+            document.getElementById('fileInput').addEventListener('change', handleFiles);
+
+            const qi = document.getElementById('questionInput');
+            qi.addEventListener('keypress', (e) => { if (e.key === 'Enter') askQuestion(); });
+            const composer = document.getElementById('composer');
+            qi.addEventListener('focus', () => composer.classList.add('focused'));
+            qi.addEventListener('blur', () => composer.classList.remove('focused'));
+
             loadChats();
         });
     </script>
