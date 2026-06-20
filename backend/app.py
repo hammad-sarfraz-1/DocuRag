@@ -35,6 +35,7 @@ from backend.document_processor import (
 )
 from backend.embedding_store import VectorStore
 from backend.chat_engine import ChatEngine
+from backend.retrieval_tools import rebuild_bm25_index
 
 logger = logging.getLogger(__name__)
 
@@ -122,8 +123,8 @@ async def upload_files(chat_id: str, files: List[UploadFile] = File(...)):
     if chat_id not in chat_metadata:
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    all_chunks = []
-    all_metadatas = []
+    total_chunks = 0
+    per_file = []
 
     for file in files:
         ext = "." + file.filename.rsplit(".", 1)[-1].lower()
@@ -143,8 +144,11 @@ async def upload_files(chat_id: str, files: List[UploadFile] = File(...)):
                 )
             chunks = chunk_text(text)
             metadatas = build_chunk_metadata(chunks, file.filename)
-            all_chunks.extend(chunks)
-            all_metadatas.extend(metadatas)
+            # Add each file on its own so per-source replacement and id
+            # namespacing in add_documents work correctly (one source per call).
+            vector_store.add_documents(chat_id, chunks, metadatas)
+            total_chunks += len(chunks)
+            per_file.append({"filename": file.filename, "chunks": len(chunks)})
         except HTTPException:
             raise
         except Exception as e:
@@ -153,8 +157,19 @@ async def upload_files(chat_id: str, files: List[UploadFile] = File(...)):
                 detail=f"Error processing {file.filename}: {e}",
             )
 
-    vector_store.add_documents(chat_id, all_chunks, all_metadatas)
-    return {"status": "success", "chunks": len(all_chunks)}
+    # Rebuild the keyword index once so BM25/hybrid search reflects new uploads.
+    rebuild_bm25_index(chat_id)
+    return {"status": "success", "chunks": total_chunks, "files": per_file}
+
+
+@app.delete("/chats/{chat_id}/documents")
+async def delete_document(chat_id: str, source: str):
+    """Remove a single uploaded document (by filename) from a chat."""
+    if chat_id not in chat_metadata:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    vector_store.delete_document(chat_id, source)
+    rebuild_bm25_index(chat_id)
+    return {"status": "deleted", "source": source}
 
 
 @app.post("/chats/{chat_id}/chat")
