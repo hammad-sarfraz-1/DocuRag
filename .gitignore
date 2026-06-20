@@ -43,6 +43,10 @@ requirements-working*.txt
 *.log
 *.journal
 
+# Process / run state
+.server.pid
+.server.log
+
 # Coverage / reports
 .coverage
 htmlcov/
