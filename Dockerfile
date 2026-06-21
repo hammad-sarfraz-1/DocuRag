@@ -39,9 +39,9 @@ COPY backend/ backend/
 COPY frontend/ frontend/
 COPY run.py .
 
-# Persist the vector store across restarts (mount a volume here at run time).
-VOLUME ["/app/chroma_db"]
-
+# Persist the vector store across restarts by mounting storage at /app/chroma_db
+# (Docker: `-v docurag_data:/app/chroma_db`; Railway: add a Volume with mount path
+# /app/chroma_db). No VOLUME instruction — Railway rejects it.
 EXPOSE 8000
 
 # Longer start period: first boot loads the ML models from disk before /health is ready.
