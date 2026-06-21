@@ -3,429 +3,198 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Super RAG Chatbot</title>
+    <title>DocuRag</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            --bg: #0f172a;
-            --panel: rgba(15, 23, 42, 0.72);
-            --panel-light: rgba(255,255,255,0.06);
-            --border: rgba(255,255,255,0.08);
-            --text: #f8fafc;
-            --muted: #94a3b8;
-            --primary: #6366f1;
-            --primary-hover: #4f46e5;
-            --danger: #ef4444;
-            --danger-hover: #dc2626;
-            --assistant: #1e293b;
-            --user: #4338ca;
-            --shadow: 0 10px 40px rgba(0,0,0,0.35);
-            --radius: 18px;
+            --bg: #FAF9F5;
+            --sidebar: #F0EEE6;
+            --raised: #FFFFFF;
+            --text: #1F1E1D;
+            --muted: #76756F;
+            --faint: #9A988F;
+            --border: #E7E4DA;
+            --border-strong: #D9D6CA;
+            --accent: #D97757;
+            --accent-hover: #C2603F;
+            --accent-soft: rgba(217,119,87,0.12);
+            --user-bubble: #EFEDE3;
+            --hover: rgba(0,0,0,0.045);
+            --active: rgba(217,119,87,0.10);
+            --danger: #B0413B;
+            --good: #4F7A65;
+            --font-sans: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --font-serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+            --radius: 16px;
         }
 
         * { box-sizing: border-box; }
 
         html, body {
             margin: 0; padding: 0; height: 100%;
-            font-family: Inter, Arial, sans-serif;
-            background: radial-gradient(circle at top left, #1e293b 0%, #0f172a 45%), #0f172a;
+            font-family: var(--font-sans);
+            background: var(--bg);
             color: var(--text);
             overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
         }
 
         body { display: flex; }
 
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.14); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.24); background-clip: padding-box; border: 3px solid transparent; }
+
         /* ─── SIDEBAR ─── */
         .sidebar {
-            width: 300px;
-            background: var(--panel);
-            backdrop-filter: blur(18px);
+            width: 270px;
+            flex: 0 0 270px;
+            background: var(--sidebar);
             border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
-            padding: 24px;
-            gap: 18px;
+            padding: 16px 12px;
+            gap: 6px;
         }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .logo-icon {
-            width: 42px; height: 42px;
-            border-radius: 14px;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 18px;
-            box-shadow: var(--shadow);
-        }
-
-        .logo h2 { margin: 0; font-size: 20px; }
-        .logo p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
-        .logo .back-link {
-            display: inline-block;
-            margin-top: 4px;
-            color: #818cf8;
-            font-size: 12px;
-            text-decoration: none;
-            font-weight: 500;
-        }
-        .logo .back-link:hover { color: #a5b4fc; }
+        .brand { display: flex; align-items: center; gap: 10px; padding: 8px 8px 14px; }
+        .brand-mark { flex: 0 0 auto; display: flex; }
+        .brand-name { font-family: var(--font-serif); font-size: 21px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
 
         .new-chat-btn {
-            width: 100%;
-            border: none;
-            background: linear-gradient(135deg, var(--primary), #8b5cf6);
-            color: white;
-            padding: 14px;
-            border-radius: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s ease;
+            display: flex; align-items: center; gap: 10px;
+            width: 100%; border: none; background: transparent; color: var(--text);
+            padding: 10px; border-radius: 10px;
+            font-family: var(--font-sans); font-size: 14.5px; font-weight: 500;
+            cursor: pointer; transition: background 0.15s ease; text-align: left;
         }
-        .new-chat-btn:hover {
-            transform: translateY(-1px);
-            background: linear-gradient(135deg, var(--primary-hover), #7c3aed);
-        }
+        .new-chat-btn:hover { background: var(--hover); }
+        .new-chat-btn svg { color: var(--accent); flex: 0 0 auto; }
 
-        .chat-list {
-            flex: 1;
-            overflow-y: auto;
-            padding-right: 4px;
-        }
+        .list-label { padding: 16px 10px 6px; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--faint); }
 
-        .chat-list::-webkit-scrollbar,
-        .chat-box::-webkit-scrollbar { width: 8px; }
-        .chat-list::-webkit-scrollbar-thumb,
-        .chat-box::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,0.1);
-            border-radius: 10px;
-        }
+        .chat-list { flex: 1; overflow-y: auto; padding: 0 2px 8px; display: flex; flex-direction: column; gap: 1px; }
 
-        .chat-item {
-            background: var(--panel-light);
-            border: 1px solid transparent;
-            border-radius: 14px;
-            padding: 14px;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            transition: 0.2s ease;
-        }
-        .chat-item:hover {
-            border-color: rgba(99,102,241,0.4);
-            background: rgba(99,102,241,0.08);
-        }
-        .chat-item.active {
-            background: rgba(99,102,241,0.18);
-            border-color: rgba(99,102,241,0.5);
-        }
-
-        .chat-name {
-            flex: 1;
-            cursor: pointer;
-            font-size: 14px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
+        .chat-item { display: flex; align-items: center; gap: 8px; border-radius: 9px; padding: 8px 10px; cursor: pointer; transition: background 0.12s ease; }
+        .chat-item:hover { background: var(--hover); }
+        .chat-item.active { background: var(--active); }
+        .chat-item.active .chat-name { color: var(--text); font-weight: 500; }
+        .chat-name { flex: 1; cursor: pointer; font-size: 14px; color: #54534E; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         .delete-chat-btn {
-            border: none;
-            background: rgba(239,68,68,0.15);
-            color: #fca5a5;
-            border-radius: 10px;
-            width: 32px; height: 32px;
-            cursor: pointer;
-            transition: 0.2s ease;
-            font-weight: bold;
+            border: none; background: transparent; color: var(--faint);
+            width: 24px; height: 24px; border-radius: 7px; cursor: pointer;
+            font-size: 17px; line-height: 1; opacity: 0; transition: 0.12s ease; flex: 0 0 auto;
         }
-        .delete-chat-btn:hover { background: var(--danger); color: white; }
+        .chat-item:hover .delete-chat-btn { opacity: 1; }
+        .delete-chat-btn:hover { background: rgba(0,0,0,0.08); color: var(--danger); }
+
+        .sidebar-footer { margin-top: auto; padding: 10px; font-size: 13px; color: var(--muted); text-decoration: none; border-radius: 9px; transition: background 0.12s ease; }
+        .sidebar-footer:hover { background: var(--hover); color: var(--text); }
 
         /* ─── MAIN ─── */
-        .main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            padding: 24px;
-            gap: 18px;
-            overflow: hidden;
-        }
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+        .chat-header { display: flex; align-items: center; gap: 10px; padding: 14px 24px; border-bottom: 1px solid var(--border); }
+        .chat-header .title { font-size: 15px; font-weight: 600; color: var(--text); }
+        .status-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 100px; font-size: 11.5px; font-weight: 600; background: var(--accent-soft); color: var(--accent-hover); }
 
-        button {
-            border: none;
-            border-radius: 12px;
-            padding: 12px 18px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: 0.2s ease;
-        }
+        .chat-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .chat-box { flex: 1; overflow-y: auto; padding: 28px 24px 12px; display: flex; flex-direction: column; }
 
-        .send-btn {
-            background: linear-gradient(135deg, var(--primary), #8b5cf6);
-            color: white;
-        }
-        .send-btn:hover {
-            background: linear-gradient(135deg, var(--primary-hover), #7c3aed);
-        }
-        .attach-btn { background: transparent; color: #94a3b8; }
-        .attach-btn:hover { background: rgba(255,255,255,0.08); color: #c7d2fe; }
-
-        /* ─── CHAT ─── */
-        .chat-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            backdrop-filter: blur(18px);
-            box-shadow: var(--shadow);
-        }
-
-        .chat-header {
-            padding: 18px 22px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .chat-header h3 { margin: 0; font-size: 18px; }
-        .chat-header span { color: var(--muted); font-size: 13px; }
-
-        .chat-box {
-            flex: 1;
-            overflow-y: auto;
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 18px;
-        }
-
-        .message { display: flex; animation: fadeIn 0.2s ease; }
+        .message { width: 100%; max-width: 760px; margin: 0 auto; display: flex; animation: fadeIn 0.25s ease; }
+        .message + .message { margin-top: 22px; }
         .message.user { justify-content: flex-end; }
         .message.assistant { justify-content: flex-start; }
+        .message.file { justify-content: flex-end; }
 
-        .bubble {
-            max-width: 75%;
-            padding: 14px 16px;
-            border-radius: 18px;
-            line-height: 1.6;
-            font-size: 15px;
-            word-wrap: break-word;
-            white-space: pre-wrap;
-        }
-        .user .bubble {
-            background: linear-gradient(135deg, #4f46e5, #6366f1);
-            color: white;
-            border-bottom-right-radius: 6px;
-        }
-        .assistant .bubble {
-            background: rgba(255,255,255,0.06);
-            color: #e2e8f0;
-            border: 1px solid rgba(255,255,255,0.06);
-            border-bottom-left-radius: 6px;
-        }
+        .bubble { white-space: pre-wrap; word-wrap: break-word; line-height: 1.7; font-size: 15.5px; }
+        .user .bubble { background: var(--user-bubble); border-radius: 18px; padding: 12px 17px; max-width: 78%; color: var(--text); }
+        .assistant .bubble { background: transparent; padding: 2px 0; max-width: 100%; color: #2B2A27; }
 
-        .citations {
-            margin-top: 12px;
-            padding: 12px 14px 13px;
-            background: rgba(99,102,241,0.06);
-            border: 1px solid rgba(99,102,241,0.16);
+        /* ─── FILE CARD (uploaded doc shown in chat) ─── */
+        .file-card {
+            display: flex; align-items: center; gap: 12px;
+            background: var(--raised);
+            border: 1px solid var(--border-strong);
             border-radius: 14px;
+            padding: 11px 13px;
+            max-width: 340px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-        .citations-head {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 10px;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-            color: #a5b4fc;
-            font-weight: 700;
+        .file-card.error { border-color: rgba(176,65,59,0.4); }
+        .file-ico {
+            flex: 0 0 auto; width: 38px; height: 38px; border-radius: 10px;
+            background: var(--accent-soft); color: var(--accent);
+            display: flex; align-items: center; justify-content: center;
         }
-        .citations-head .count {
-            background: rgba(99,102,241,0.22);
-            color: #c7d2fe;
-            border-radius: 999px;
-            padding: 1px 8px;
-            font-size: 11px;
-            letter-spacing: 0;
+        .file-meta { display: flex; flex-direction: column; min-width: 0; }
+        .file-name { font-weight: 600; font-size: 14px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 210px; }
+        .file-sub { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; margin-top: 1px; }
+        .file-card.error .file-sub { color: var(--danger); }
+        .file-remove {
+            border: none; background: transparent; color: var(--muted); cursor: pointer;
+            width: 24px; height: 24px; border-radius: 7px; font-size: 17px; line-height: 1; margin-left: 2px;
+            display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
         }
-        .citation-item {
-            display: flex;
-            gap: 10px;
-            padding: 9px 10px;
-            border-radius: 10px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.05);
-            margin-bottom: 6px;
-            transition: background 0.15s ease, border-color 0.15s ease;
-        }
+        .file-remove:hover { background: rgba(0,0,0,0.08); color: var(--danger); }
+
+        /* ─── SOURCES ─── */
+        .citations { margin-top: 16px; padding: 12px 14px 13px; background: var(--raised); border: 1px solid var(--border); border-radius: 14px; }
+        .citations-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); font-weight: 700; }
+        .citations-head .count { background: var(--accent-soft); color: var(--accent-hover); border-radius: 999px; padding: 1px 8px; font-size: 11px; letter-spacing: 0; }
+        .citation-item { display: flex; gap: 10px; padding: 9px 10px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); margin-bottom: 6px; transition: border-color 0.15s ease, background 0.15s ease; }
         .citation-item:last-child { margin-bottom: 0; }
-        .citation-item:hover {
-            background: rgba(99,102,241,0.10);
-            border-color: rgba(99,102,241,0.30);
-        }
-        .citation-item .badge {
-            flex: 0 0 auto;
-            width: 22px;
-            height: 22px;
-            border-radius: 7px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #4f46e5, #6366f1);
-            color: #fff;
-            font-size: 11px;
-            font-weight: 700;
-        }
+        .citation-item:hover { border-color: var(--border-strong); background: #F6F4EC; }
+        .citation-item .badge { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 7px; display: flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; }
         .citation-item .src-body { min-width: 0; flex: 1; }
-        .citation-item .src-name {
-            color: #c7d2fe;
-            font-weight: 600;
-            font-size: 12.5px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-        .citation-item .doc-ico { color: #818cf8; flex: 0 0 auto; }
-        .citation-item .src-part {
-            color: #a5b4fc;
-            background: rgba(129,140,248,0.14);
-            border-radius: 6px;
-            padding: 0 6px;
-            font-size: 10.5px;
-            font-weight: 600;
-        }
-        .citation-item .src-snippet {
-            color: #94a3b8;
-            font-size: 12px;
-            line-height: 1.45;
-            margin-top: 4px;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
+        .citation-item .src-name { color: var(--text); font-weight: 600; font-size: 12.5px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .citation-item .doc-ico { color: var(--accent); flex: 0 0 auto; }
+        .citation-item .src-part { color: var(--accent-hover); background: var(--accent-soft); border-radius: 6px; padding: 0 6px; font-size: 10.5px; font-weight: 600; }
+        .citation-item .src-snippet { color: var(--muted); font-size: 12px; line-height: 1.45; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
-        .input-area {
-            padding: 16px 18px 20px;
-            border-top: 1px solid var(--border);
-            background: rgba(255,255,255,0.02);
-        }
-        .composer {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            border: 1px solid var(--border);
-            background: rgba(255,255,255,0.05);
-            border-radius: 18px;
-            padding: 8px;
-            transition: border-color .2s ease, box-shadow .2s ease;
-        }
-        .composer.focused {
-            border-color: rgba(99,102,241,0.5);
-            box-shadow: 0 0 0 4px rgba(99,102,241,0.15);
-        }
-        .composer-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .composer-row input {
-            flex: 1;
-            border: none;
-            background: transparent;
-            color: white;
-            padding: 10px 4px;
-            outline: none;
-            font-size: 15px;
-        }
-        .composer-row input::placeholder { color: #94a3b8; }
+        /* ─── COMPOSER ─── */
+        .input-area { padding: 8px 24px 22px; display: flex; justify-content: center; }
+        .composer { width: 100%; max-width: 760px; display: flex; align-items: center; gap: 6px; border: 1px solid var(--border-strong); background: var(--raised); border-radius: 24px; padding: 8px 8px 8px 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03); transition: border-color .15s ease, box-shadow .15s ease; }
+        .composer.focused { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        .composer input[type="text"] { flex: 1; border: none; background: transparent; color: var(--text); padding: 10px 6px; outline: none; font-size: 15.5px; font-family: var(--font-sans); }
+        .composer input[type="text"]::placeholder { color: var(--faint); }
 
-        .icon-btn {
-            flex: 0 0 auto;
-            display: flex; align-items: center; justify-content: center;
-            width: 38px; height: 38px;
-            border-radius: 11px;
-            padding: 0;
-        }
+        .icon-btn { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: none; border-radius: 10px; padding: 0; cursor: pointer; transition: background 0.15s ease; }
+        .attach-btn { background: transparent; color: var(--muted); }
+        .attach-btn:hover { background: var(--hover); color: var(--text); }
+        .send-btn { background: var(--accent); color: #fff; }
+        .send-btn:hover { background: var(--accent-hover); }
 
-        .attachments {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            padding: 2px 4px 0;
-        }
-        .attachments:empty { display: none; }
-        .attach-chip {
-            display: flex; align-items: center; gap: 8px;
-            background: rgba(99,102,241,0.10);
-            border: 1px solid rgba(99,102,241,0.22);
-            border-radius: 10px;
-            padding: 6px 10px;
-            font-size: 12.5px;
-            color: #c7d2fe;
-        }
-        .attach-chip .chip-ico { flex: 0 0 auto; opacity: .85; }
-        .attach-chip .chip-name {
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            max-width: 160px;
-        }
-        .attach-chip .chip-status { color: #94a3b8; font-size: 11px; }
-        .attach-chip .chip-remove {
-            border: none;
-            background: transparent;
-            color: inherit;
-            opacity: 0.55;
-            cursor: pointer;
-            width: 16px; height: 16px;
-            border-radius: 6px;
-            padding: 0;
-            margin-left: 2px;
-            font-size: 15px;
-            line-height: 1;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .attach-chip .chip-remove:hover { opacity: 1; background: rgba(255,255,255,0.12); }
-        .attach-chip.done { border-color: rgba(16,185,129,0.30); background: rgba(16,185,129,0.10); color: #6ee7b7; }
-        .attach-chip.done .chip-status { color: #6ee7b7; }
-        .attach-chip.error { border-color: rgba(239,68,68,0.30); background: rgba(239,68,68,0.10); color: #fca5a5; }
-        .attach-chip.error .chip-status { color: #fca5a5; }
         .spin { animation: spin 0.8s linear infinite; transform-origin: center; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes popIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
 
-        .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 100px;
-            font-size: 11px;
-            font-weight: 500;
-            background: rgba(16,185,129,0.12);
-            color: #6ee7b7;
-            border: 1px solid rgba(16,185,129,0.2);
-            margin-left: 8px;
-        }
+        /* ─── MODALS ─── */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(31,30,29,0.38); display: none; align-items: center; justify-content: center; z-index: 1000; animation: fadeIn 0.15s ease; padding: 20px; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: var(--raised); border: 1px solid var(--border); border-radius: 18px; padding: 24px; width: 100%; max-width: 400px; box-shadow: 0 16px 48px rgba(0,0,0,0.18); animation: popIn 0.16s ease; }
+        .modal h3 { font-family: var(--font-serif); font-size: 19px; font-weight: 600; color: var(--text); margin: 0 0 6px; }
+        .modal p { font-size: 14px; color: var(--muted); margin: 0 0 16px; line-height: 1.5; }
+        .modal input { width: 100%; border: 1px solid var(--border-strong); background: var(--bg); color: var(--text); padding: 11px 13px; border-radius: 11px; font-size: 15px; font-family: var(--font-sans); outline: none; margin-bottom: 18px; }
+        .modal input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+        .modal-btn { border: none; border-radius: 10px; padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: var(--font-sans); transition: 0.15s ease; }
+        .modal-btn.ghost { background: transparent; color: var(--muted); }
+        .modal-btn.ghost:hover { background: var(--hover); color: var(--text); }
+        .modal-btn.primary { background: var(--accent); color: #fff; }
+        .modal-btn.primary:hover { background: var(--accent-hover); }
+        .modal-btn.danger { background: var(--danger); color: #fff; }
+        .modal-btn.danger:hover { background: #97352F; }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(6px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-
-        @media (max-width: 900px) {
+        @media (max-width: 860px) {
             body { flex-direction: column; }
-            .sidebar { width: 100%; height: 260px; border-right: none; border-bottom: 1px solid var(--border); }
-            .bubble { max-width: 92%; }
+            .sidebar { width: 100%; flex: 0 0 auto; height: 200px; border-right: none; border-bottom: 1px solid var(--border); }
+            .user .bubble { max-width: 90%; }
         }
     </style>
 </head>
@@ -433,58 +202,86 @@
 
     <!-- SIDEBAR -->
     <div class="sidebar">
-        <div class="logo">
-            <div class="logo-icon">R</div>
-            <div>
-                <h2>Super RAG</h2>
-                <p>Multi-agent document assistant</p>
-                <a href="/" class="back-link">&larr; Back to Home</a>
+        <div class="brand">
+            <div class="brand-mark">
+                <svg width="24" height="24" viewBox="0 0 32 32" stroke="#D97757" stroke-width="3.1" stroke-linecap="round">
+                    <line x1="16" y1="4" x2="16" y2="28"/>
+                    <line x1="4" y1="16" x2="28" y2="16"/>
+                    <line x1="7.5" y1="7.5" x2="24.5" y2="24.5"/>
+                    <line x1="24.5" y1="7.5" x2="7.5" y2="24.5"/>
+                </svg>
             </div>
+            <span class="brand-name">DocuRag</span>
         </div>
 
-        <button class="new-chat-btn" id="newChatBtn">+ New Chat</button>
+        <button class="new-chat-btn" id="newChatBtn">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            New chat
+        </button>
+
+        <div class="list-label">Recents</div>
         <div class="chat-list" id="chatList"></div>
+
+        <a href="/" class="sidebar-footer">&larr; Back to home</a>
     </div>
 
     <!-- MAIN -->
     <div class="main">
         <div class="chat-container">
             <div class="chat-header">
-                <div>
-                    <h3>Conversation <span class="status-badge" id="modeBadge">Agentic RAG</span></h3>
-                    <span>5-agent orchestration &middot; Hybrid search &middot; Semantic cache</span>
-                </div>
+                <span class="title">DocuRag</span>
+                <span class="status-badge" id="modeBadge">Agentic RAG</span>
             </div>
 
             <div class="chat-box" id="chatBox">
                 <div class="message assistant">
-                    <div class="bubble">
-                        Select a chat or create a new one.
-                        Upload documents and start asking questions.
-                    </div>
+                    <div class="bubble">Hi! Ask me anything, or attach a document with the paperclip to chat about it.</div>
                 </div>
             </div>
 
             <div class="input-area">
                 <div class="composer" id="composer">
-                    <div class="attachments" id="attachments"></div>
-                    <div class="composer-row">
-                        <button class="icon-btn attach-btn" id="attachBtn" type="button" title="Attach documents" aria-label="Attach documents">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                        </button>
-                        <input type="text" id="questionInput" placeholder="Ask a question about your documents..." />
-                        <button class="icon-btn send-btn" id="sendBtn" type="button" title="Send" aria-label="Send">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-                        </button>
-                    </div>
+                    <button class="icon-btn attach-btn" id="attachBtn" type="button" title="Attach documents" aria-label="Attach documents">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    </button>
+                    <input type="text" id="questionInput" placeholder="Ask anything about your documents..." />
+                    <button class="icon-btn send-btn" id="sendBtn" type="button" title="Send" aria-label="Send">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                    </button>
                     <input type="file" id="fileInput" multiple accept=".pdf,.docx,.txt" hidden />
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- NEW-CHAT MODAL -->
+    <div class="modal-overlay" id="nameModal">
+        <div class="modal">
+            <h3>New chat</h3>
+            <p>Give your conversation a name.</p>
+            <input type="text" id="nameInput" placeholder="e.g. Resume review" maxlength="60" autocomplete="off" />
+            <div class="modal-actions">
+                <button class="modal-btn ghost" id="nameCancel" type="button">Cancel</button>
+                <button class="modal-btn primary" id="nameCreate" type="button">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DELETE-CONFIRM MODAL -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal">
+            <h3>Delete chat?</h3>
+            <p>This conversation, its documents, and history will be permanently removed.</p>
+            <div class="modal-actions">
+                <button class="modal-btn ghost" id="confirmCancel" type="button">Cancel</button>
+                <button class="modal-btn danger" id="confirmOk" type="button">Delete</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentChatId = null;
+        let pendingDelete = null;
 
         function escapeHtml(str) {
             if (!str) return '';
@@ -496,6 +293,7 @@
             });
         }
 
+        /* ─── chat list ─── */
         async function loadChats() {
             try {
                 const res = await fetch('/chats');
@@ -511,30 +309,13 @@
                     const nameSpan = document.createElement('span');
                     nameSpan.className = 'chat-name';
                     nameSpan.textContent = chat.name;
-                    nameSpan.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        switchChat(chat.chat_id);
-                    });
+                    nameSpan.addEventListener('click', (e) => { e.stopPropagation(); switchChat(chat.chat_id); });
 
                     const delBtn = document.createElement('button');
-                    delBtn.textContent = '\u00d7';
+                    delBtn.textContent = '×';
                     delBtn.className = 'delete-chat-btn';
-                    delBtn.addEventListener('click', async (e) => {
-                        e.stopPropagation();
-                        if (confirm('Delete this chat? All documents and history will be lost.')) {
-                            await fetch(`/chats/${chat.chat_id}`, { method: 'DELETE' });
-                            if (currentChatId === chat.chat_id) currentChatId = null;
-                            await loadChats();
-                            if (currentChatId === null) {
-                                const remaining = await (await fetch('/chats')).json();
-                                if (remaining.length > 0) {
-                                    switchChat(remaining[0].chat_id);
-                                } else {
-                                    await createNewChat();
-                                }
-                            }
-                        }
-                    });
+                    delBtn.title = 'Delete chat';
+                    delBtn.addEventListener('click', (e) => { e.stopPropagation(); openConfirm(chat.chat_id); });
 
                     div.appendChild(nameSpan);
                     div.appendChild(delBtn);
@@ -544,72 +325,90 @@
                 if (!currentChatId && chats.length > 0) {
                     await switchChat(chats[0].chat_id);
                 } else if (chats.length === 0) {
-                    await createNewChat();
+                    await createChat('New Chat');
                 }
             } catch (err) {
                 console.error('loadChats error:', err);
             }
         }
 
-        async function createNewChat() {
-            const name = prompt('Enter chat name:', 'New Chat');
-            if (!name) return;
+        async function createChat(name) {
             const formData = new FormData();
-            formData.append('name', name);
+            formData.append('name', name || 'New Chat');
             const res = await fetch('/chats/new', { method: 'POST', body: formData });
             const data = await res.json();
             await loadChats();
             await switchChat(data.chat_id);
+            return data.chat_id;
         }
 
         async function switchChat(chatId) {
             if (currentChatId === chatId) return;
             currentChatId = chatId;
-            clearAttachments();
             await loadChats();
             await loadChatHistory();
         }
 
         async function loadChatHistory() {
+            const chatBox = document.getElementById('chatBox');
             if (!currentChatId) {
-                document.getElementById('chatBox').innerHTML = `
-                    <div class="message assistant">
-                        <div class="bubble">No chat selected. Create or select a chat.</div>
-                    </div>`;
+                chatBox.innerHTML = '<div class="message assistant"><div class="bubble">No chat selected. Create or select a chat.</div></div>';
                 return;
             }
             try {
                 const res = await fetch(`/chats/${currentChatId}/history`);
                 const data = await res.json();
-                const chatBox = document.getElementById('chatBox');
                 chatBox.innerHTML = '';
                 for (let msg of data.history) {
                     addMessage(msg.role, msg.content);
                 }
                 if (data.history.length === 0) {
-                    addMessage('assistant', 'No conversation yet. Upload documents and ask a question.');
+                    addMessage('assistant', 'Hi! Ask me anything, or attach a document with the paperclip to chat about it.');
                 }
             } catch (err) {
                 console.error('loadChatHistory error:', err);
             }
         }
 
-        const CHIP_FILE_ICO = '<svg class="chip-ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
-        const CHIP_SPIN = '<svg class="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
-
-        function clearAttachments() {
-            const c = document.getElementById('attachments');
-            if (c) c.innerHTML = '';
+        /* ─── new-chat modal ─── */
+        function openNameModal() {
+            const m = document.getElementById('nameModal');
+            const inp = document.getElementById('nameInput');
+            inp.value = '';
+            m.classList.add('open');
+            setTimeout(() => inp.focus(), 30);
+        }
+        function closeNameModal() { document.getElementById('nameModal').classList.remove('open'); }
+        async function submitNewChat() {
+            const name = (document.getElementById('nameInput').value || '').trim() || 'New Chat';
+            closeNameModal();
+            await createChat(name);
         }
 
-        async function removeDoc(name, chip) {
-            chip.remove();
-            if (!currentChatId) return;
-            try {
-                await fetch(`/chats/${currentChatId}/documents?source=${encodeURIComponent(name)}`, { method: 'DELETE' });
-            } catch (err) {
-                // non-fatal: the card is already gone from the UI
+        /* ─── delete-confirm modal ─── */
+        function openConfirm(chatId) { pendingDelete = chatId; document.getElementById('confirmModal').classList.add('open'); }
+        function closeConfirm() { pendingDelete = null; document.getElementById('confirmModal').classList.remove('open'); }
+        async function doDelete() {
+            const chatId = pendingDelete;
+            closeConfirm();
+            if (!chatId) return;
+            await fetch(`/chats/${chatId}`, { method: 'DELETE' });
+            if (currentChatId === chatId) currentChatId = null;
+            await loadChats();
+            if (currentChatId === null) {
+                const remaining = await (await fetch('/chats')).json();
+                if (remaining.length > 0) { await switchChat(remaining[0].chat_id); }
+                else { await createChat('New Chat'); }
             }
+        }
+
+        /* ─── uploads (shown as file cards in the chat) ─── */
+        const SPIN_SVG = '<svg class="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
+        const FILE_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+
+        function extLabel(name) {
+            const ext = (name.split('.').pop() || '').toUpperCase();
+            return ['PDF', 'DOCX', 'TXT'].includes(ext) ? ext : 'FILE';
         }
 
         async function handleFiles() {
@@ -618,18 +417,22 @@
             if (files.length === 0) return;
             if (!currentChatId) { alert('Please select or create a chat first.'); input.value = ''; return; }
 
-            const container = document.getElementById('attachments');
-            const chips = files.map(f => {
-                const chip = document.createElement('div');
-                chip.className = 'attach-chip';
-                chip.innerHTML = CHIP_FILE_ICO +
-                    '<span class="chip-name">' + escapeHtml(f.name) + '</span>' +
-                    '<span class="chip-status">' + CHIP_SPIN + '</span>' +
-                    '<button class="chip-remove" type="button" title="Remove document" aria-label="Remove document">×</button>';
-                chip.querySelector('.chip-remove').addEventListener('click', () => removeDoc(f.name, chip));
-                container.appendChild(chip);
-                return chip;
+            const chatBox = document.getElementById('chatBox');
+            const cards = files.map(f => {
+                const wrap = document.createElement('div');
+                wrap.className = 'message file';
+                wrap.innerHTML =
+                    '<div class="file-card">' +
+                        '<div class="file-ico">' + FILE_SVG + '</div>' +
+                        '<div class="file-meta">' +
+                            '<span class="file-name">' + escapeHtml(f.name) + '</span>' +
+                            '<span class="file-sub">' + SPIN_SVG + ' Uploading…</span>' +
+                        '</div>' +
+                    '</div>';
+                chatBox.appendChild(wrap);
+                return wrap;
             });
+            chatBox.scrollTop = chatBox.scrollHeight;
 
             const formData = new FormData();
             for (let f of files) formData.append('files', f);
@@ -640,28 +443,44 @@
                 if (res.ok) {
                     const byName = {};
                     (data.files || []).forEach(x => { byName[x.filename] = x.chunks; });
-                    chips.forEach((chip, i) => {
-                        chip.classList.add('done');
-                        const n = byName[files[i].name];
-                        chip.querySelector('.chip-status').textContent = (n != null ? n + ' chunks' : 'added');
+                    cards.forEach((wrap, i) => {
+                        const f = files[i];
+                        const n = byName[f.name];
+                        wrap.querySelector('.file-sub').textContent = extLabel(f.name) + (n != null ? ' · ' + n + ' chunks' : ' · added');
+                        const card = wrap.querySelector('.file-card');
+                        const rm = document.createElement('button');
+                        rm.className = 'file-remove'; rm.type = 'button'; rm.title = 'Remove document'; rm.textContent = '×';
+                        rm.addEventListener('click', () => removeDoc(f.name, wrap));
+                        card.appendChild(rm);
                     });
                 } else {
-                    chips.forEach(chip => {
-                        chip.classList.add('error');
-                        chip.querySelector('.chip-status').textContent = 'failed';
+                    cards.forEach(wrap => {
+                        wrap.querySelector('.file-card').classList.add('error');
+                        wrap.querySelector('.file-sub').textContent = 'Upload failed';
                     });
                     addMessage('assistant', 'Upload error: ' + (data.detail || 'Unknown error'));
                 }
             } catch (err) {
-                chips.forEach(chip => {
-                    chip.classList.add('error');
-                    chip.querySelector('.chip-status').textContent = 'failed';
+                cards.forEach(wrap => {
+                    wrap.querySelector('.file-card').classList.add('error');
+                    wrap.querySelector('.file-sub').textContent = 'Upload failed';
                 });
             } finally {
                 input.value = '';
             }
         }
 
+        async function removeDoc(name, wrap) {
+            if (wrap) wrap.remove();
+            if (!currentChatId) return;
+            try {
+                await fetch(`/chats/${currentChatId}/documents?source=${encodeURIComponent(name)}`, { method: 'DELETE' });
+            } catch (err) {
+                // non-fatal: the card is already gone from the UI
+            }
+        }
+
+        /* ─── chat ─── */
         async function askQuestion() {
             if (!currentChatId) { alert('Please select or create a chat first.'); return; }
             const questionInput = document.getElementById('questionInput');
@@ -670,7 +489,6 @@
 
             addMessage('user', question);
             questionInput.value = '';
-            clearAttachments();
 
             const formData = new FormData();
             formData.append('question', question);
@@ -696,11 +514,9 @@
             const bubble = document.createElement('div');
             bubble.className = 'bubble';
 
-            let html = '<strong>' + (role === 'user' ? 'You' : 'Assistant') + '</strong><br>' + escapeHtml(content);
+            let html = escapeHtml(content);
 
             if (role === 'assistant' && citations && citations.length > 0) {
-                // Collapse multiple chunks of the same file into a single source entry —
-                // one card per document, not one per passage.
                 const groups = [];
                 const bySource = {};
                 for (let c of citations) {
@@ -739,7 +555,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('newChatBtn').addEventListener('click', createNewChat);
+            document.getElementById('newChatBtn').addEventListener('click', openNameModal);
             document.getElementById('sendBtn').addEventListener('click', askQuestion);
             document.getElementById('attachBtn').addEventListener('click', () => document.getElementById('fileInput').click());
             document.getElementById('fileInput').addEventListener('change', handleFiles);
@@ -749,6 +565,25 @@
             const composer = document.getElementById('composer');
             qi.addEventListener('focus', () => composer.classList.add('focused'));
             qi.addEventListener('blur', () => composer.classList.remove('focused'));
+
+            // new-chat modal
+            document.getElementById('nameCreate').addEventListener('click', submitNewChat);
+            document.getElementById('nameCancel').addEventListener('click', closeNameModal);
+            document.getElementById('nameInput').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') submitNewChat();
+                if (e.key === 'Escape') closeNameModal();
+            });
+            // delete-confirm modal
+            document.getElementById('confirmOk').addEventListener('click', doDelete);
+            document.getElementById('confirmCancel').addEventListener('click', closeConfirm);
+
+            // click outside the modal card closes it
+            document.querySelectorAll('.modal-overlay').forEach(ov => {
+                ov.addEventListener('click', (e) => { if (e.target === ov) ov.classList.remove('open'); });
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') { closeNameModal(); closeConfirm(); }
+            });
 
             loadChats();
         });
