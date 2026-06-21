@@ -1,12 +1,14 @@
-FROM python:3.13-slim
+# Python 3.11: matches the tested dependency stack (3.13 pulled untested wheels).
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Prevent Python buffering
+# Prevent Python buffering; keep the embedding/reranker caches in a known path.
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+ENV HF_HOME=/app/.cache/huggingface
 
-# Install Linux dependencies
+# System libraries for OpenCV / EasyOCR / pdf2image.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
@@ -20,26 +22,32 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip
 RUN pip install --upgrade pip
 
-# Copy requirements first
+# Install pinned dependencies first (better layer caching).
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Pre-download the embedding + reranker models into the image so the container
+# starts fast and works without reaching Hugging Face at runtime.
+RUN python -c "from sentence_transformers import SentenceTransformer, CrossEncoder; \
+SentenceTransformer('all-MiniLM-L6-v2'); \
+CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')"
 
 # Copy app
 COPY backend/ backend/
 COPY frontend/ frontend/
 COPY run.py .
 
-# Expose FastAPI port
+# Persist the vector store across restarts (mount a volume here at run time).
+VOLUME ["/app/chroma_db"]
+
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
-CMD curl -f http://localhost:8000/health || exit 1
+# Longer start period: first boot loads the ML models from disk before /health is ready.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
 
-# Start app
+# GROQ_API_KEY is required at runtime, e.g.:
+#   docker run -p 8000:8000 -e GROQ_API_KEY=gsk_... -v docurag_data:/app/chroma_db docurag
 CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000"]
