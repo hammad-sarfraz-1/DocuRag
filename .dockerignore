@@ -11,3 +11,14 @@ node_modules/
 *.db
 *.sqlite3
 .cache/
+
+# Secrets and local runtime state — never bake into the image
+.env
+chroma_db/
+chat_metadata.json
+*.log
+.server.pid
+
+# Dev-only files
+Makefile
+README.md
