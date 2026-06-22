@@ -46,8 +46,10 @@ EXPOSE 8000
 
 # Longer start period: first boot loads the ML models from disk before /health is ready.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
 
 # GROQ_API_KEY is required at runtime, e.g.:
 #   docker run -p 8000:8000 -e GROQ_API_KEY=gsk_... -v docurag_data:/app/chroma_db docurag
-CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Shell form (not exec form) so ${PORT} expands. Railway injects $PORT at runtime
+# and routes the public domain to it; locally we fall back to 8000.
+CMD uvicorn backend.app:app --host 0.0.0.0 --port ${PORT:-8000}
