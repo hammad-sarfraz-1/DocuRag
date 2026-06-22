@@ -37,7 +37,13 @@ class ChatEngine:
             self.sessions[chat_id] = []
         self.sessions[chat_id].append({"role": "user", "content": question})
         self.sessions[chat_id].append(
-            {"role": "assistant", "content": result["answer"]}
+            {
+                "role": "assistant",
+                "content": result["answer"],
+                # Persist citations alongside the message so they survive a chat
+                # reopen (the /history endpoint returns these dicts verbatim).
+                "citations": result.get("citations", []),
+            }
         )
 
         return result

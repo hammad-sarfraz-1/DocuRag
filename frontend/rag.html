@@ -156,6 +156,13 @@
         .citation-item .src-part { color: var(--accent-hover); background: var(--accent-soft); border-radius: 6px; padding: 0 6px; font-size: 10.5px; font-weight: 600; }
         .citation-item .src-snippet { color: var(--muted); font-size: 12px; line-height: 1.45; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
+        /* ─── TYPING INDICATOR ─── */
+        .typing-dots { display: inline-flex; gap: 5px; align-items: center; padding: 3px 2px; }
+        .typing-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: typingBlink 1.4s infinite ease-in-out both; }
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typingBlink { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+
         /* ─── COMPOSER ─── */
         .input-area { padding: 8px 24px 22px; display: flex; justify-content: center; }
         .composer { width: 100%; max-width: 760px; display: flex; align-items: center; gap: 6px; border: 1px solid var(--border-strong); background: var(--raised); border-radius: 24px; padding: 8px 8px 8px 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03); transition: border-color .15s ease, box-shadow .15s ease; }
@@ -360,7 +367,7 @@
                 const data = await res.json();
                 chatBox.innerHTML = '';
                 for (let msg of data.history) {
-                    addMessage(msg.role, msg.content);
+                    addMessage(msg.role, msg.content, msg.citations || []);
                 }
                 if (data.history.length === 0) {
                     addMessage('assistant', 'Hi! Ask me anything, or attach a document with the paperclip to chat about it.');
@@ -481,7 +488,24 @@
         }
 
         /* ─── chat ─── */
+        let isThinking = false;
+
+        function showTyping() {
+            const chatBox = document.getElementById('chatBox');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message assistant';
+            wrapper.id = 'typingIndicator';
+            wrapper.innerHTML = '<div class="bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+            chatBox.appendChild(wrapper);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        function removeTyping() {
+            const t = document.getElementById('typingIndicator');
+            if (t) t.remove();
+        }
+
         async function askQuestion() {
+            if (isThinking) return;
             if (!currentChatId) { alert('Please select or create a chat first.'); return; }
             const questionInput = document.getElementById('questionInput');
             const question = questionInput.value.trim();
@@ -493,16 +517,22 @@
             const formData = new FormData();
             formData.append('question', question);
 
+            isThinking = true;
+            showTyping();
             try {
                 const res = await fetch(`/chats/${currentChatId}/chat`, { method: 'POST', body: formData });
                 const data = await res.json();
+                removeTyping();
                 if (res.ok) {
                     addMessage('assistant', data.answer, data.citations || []);
                 } else {
                     addMessage('assistant', 'Error: ' + (data.detail || 'Unknown error'));
                 }
             } catch (err) {
+                removeTyping();
                 addMessage('assistant', 'Request failed: ' + err.message);
+            } finally {
+                isThinking = false;
             }
         }
 
