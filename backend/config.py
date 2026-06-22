@@ -20,6 +20,9 @@ class Config:
 
     PERSIST_DIR = os.getenv("PERSIST_DIR", "./chroma_db")
     CHAT_META_FILE = os.getenv("CHAT_META_FILE", "./chat_metadata.json")
+    # Kept inside PERSIST_DIR by default so chat history lands on the same
+    # persisted volume as the vector store (survives restarts/redeploys).
+    HISTORY_FILE = os.getenv("HISTORY_FILE", os.path.join(PERSIST_DIR, "chat_history.json"))
 
     USE_OCR = os.getenv("USE_OCR", "true").lower() == "true"
     OCR_LANG = ["en"]
