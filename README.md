@@ -135,9 +135,11 @@ uploaded documents across restarts.
 ## Deploy to Railway
 
 1. Connect the repo; Railway builds from the `Dockerfile`.
-2. Add variables: `GROQ_API_KEY` (required), and `PORT` set to match the port on your
-   public domain (Railway routes the domain to that port; the app binds `$PORT`).
-3. Add a **Volume** mounted at `/app/chroma_db` to keep documents across deploys.
+2. Add variables: `GROQ_API_KEY` (required), `PORT` set to match the port on your
+   public domain (Railway routes the domain to that port; the app binds `$PORT`), and
+   `TAVILY_API_KEY` (optional) to enable web search.
+3. Add a **Volume** mounted at `/app/chroma_db` to keep documents and chat history
+   across deploys.
 
 ---
 
