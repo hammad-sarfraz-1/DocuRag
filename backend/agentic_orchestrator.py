@@ -43,6 +43,13 @@ class AgenticState(TypedDict):
     iteration: int
 
 
+_CHARS_PER_TOKEN = 5  # rough estimate; no exact tokenizer for the Groq-hosted model
+
+
+def _estimate_tokens(text: str) -> int:
+    return len(text) // _CHARS_PER_TOKEN
+
+
 def _fmt(history: List[Dict], n: int = 6) -> str:
     lines = []
     for m in history[-n:]:
@@ -222,7 +229,17 @@ def synthesize(state: AgenticState) -> dict:
             "user to attach files with the paperclip to ask about them."
         )
 
-    context_block = context[:24000] if context.strip() else "(no excerpts retrieved)"
+    reserved_tokens = (
+        _estimate_tokens(system_msg)
+        + _estimate_tokens(history_str)
+        + Config.RESPONSE_TOKEN_RESERVE
+    )
+    context_char_budget = max(Config.MAX_CONTEXT_TOKENS - reserved_tokens, 0) * _CHARS_PER_TOKEN
+    context_block = (
+        context[:context_char_budget]
+        if context.strip() and context_char_budget > 0
+        else "(no excerpts retrieved)"
+    )
 
     prompt = (
         f"{guidance}\n\n"

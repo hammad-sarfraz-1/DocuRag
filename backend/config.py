@@ -8,6 +8,11 @@ class Config:
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
     MODEL_NAME = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
+    # Total prompt+response token budget for the synthesis call. Retrieved-chunk
+    # context is sized dynamically to whatever's left after the system prompt, chat
+    # history, and RESPONSE_TOKEN_RESERVE are subtracted (see agentic_orchestrator.py).
+    MAX_CONTEXT_TOKENS = int(os.getenv("MAX_CONTEXT_TOKENS", "8192"))
+    RESPONSE_TOKEN_RESERVE = int(os.getenv("RESPONSE_TOKEN_RESERVE", "1024"))
 
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
     CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
