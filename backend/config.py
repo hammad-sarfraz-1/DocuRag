@@ -30,6 +30,9 @@ class Config:
     ENABLE_RERANKING = os.getenv("ENABLE_RERANKING", "true").lower() == "true"
     RERANKER_MODEL = os.getenv("RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
     RERANK_KEEP = int(os.getenv("RERANK_KEEP", "6"))
+    # Web search kicks in when the top retrieved chunk's score falls below this
+    # (cross-encoder relevance score; below 0 roughly means "not actually relevant").
+    WEB_FALLBACK_SCORE_THRESHOLD = float(os.getenv("WEB_FALLBACK_SCORE_THRESHOLD", "0.0"))
 
     ENABLE_BM25 = os.getenv("ENABLE_BM25", "true").lower() == "true"
     HYBRID_SEARCH_WEIGHT_VECTOR = float(os.getenv("HYBRID_SEARCH_WEIGHT_VECTOR", "0.6"))

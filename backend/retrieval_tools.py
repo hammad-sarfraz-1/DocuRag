@@ -152,17 +152,6 @@ def search_web(query: str, k: int = 3) -> List[RetrievalResult]:
         return []
 
 
-def search_all_sources(chat_id: str, query: str, use_web: bool = True) -> List[RetrievalResult]:
-    """Always search documents first (hybrid), optionally supplement with web."""
-    doc_results = search_hybrid(chat_id, query)
-
-    if use_web and Config.TAVILY_API_KEY:
-        web_results = search_web(query, k=2)
-        doc_results.extend(web_results)
-
-    return doc_results
-
-
 class Reranker:
     def __init__(self, model_name: str = Config.RERANKER_MODEL):
         self.model_name = model_name

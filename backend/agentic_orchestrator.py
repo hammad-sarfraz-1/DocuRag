@@ -12,7 +12,7 @@ from backend.embedding_store import VectorStore
 from backend.retrieval_tools import (
     RetrievalResult,
     reranker,
-    search_all_sources,
+    search_hybrid,
     search_web,
 )
 
@@ -72,26 +72,9 @@ def _has_uploaded_docs(chat_id: str) -> bool:
         return False
 
 
-def _needs_web(query: str) -> bool:
-    keywords = {"current", "latest", "news", "today", "2024", "2025", "2026",
-                "recent", "update", "new", "now"}
-    words = set(query.lower().split())
-    return bool(keywords & words)
-
-
 def plan_query(state: AgenticState) -> dict:
     has_docs = _has_uploaded_docs(state["chat_id"])
-    needs_web = _needs_web(state["input"])
-
-    if has_docs:
-        use_web = needs_web
-    else:
-        use_web = True
-
-    return {
-        "has_documents": has_docs,
-        "use_web": use_web,
-    }
+    return {"has_documents": has_docs}
 
 
 def _build_citations(results: List[Dict]) -> List[Citation]:
@@ -147,7 +130,7 @@ def _citations_for_answer(answer: str, retrieval_results: List[Dict]) -> List[Ci
 def retrieve(state: AgenticState) -> dict:
     chat_id = state["chat_id"]
     query = state["input"]
-    use_web = state.get("use_web", False)
+    has_docs = state.get("has_documents", False)
 
     all_chunks = vector_store.get_all_documents_with_metadata(chat_id)
     total = len(all_chunks)
@@ -161,16 +144,22 @@ def retrieve(state: AgenticState) -> dict:
         ]
         if Config.ENABLE_RERANKING:
             results = reranker.rerank(query, results, keep=total)
-        if use_web and Config.TAVILY_API_KEY:
-            results = results + search_web(query, k=2)
-        context_results = results
-    else:
+    elif total:
         # Large corpus: ranked top-k retrieval (can't fit everything in context).
-        results = search_all_sources(chat_id, query, use_web=use_web)
+        results = search_hybrid(chat_id, query)
         if Config.ENABLE_RERANKING and results:
             results = reranker.rerank(query, results)
-        context_results = results
+    else:
+        results = []
 
+    # Fall back to web search when there are no documents at all, or when the
+    # best document match still scores below the relevance threshold.
+    top_score = results[0].score if results else float("-inf")
+    use_web = (not has_docs) or (top_score < Config.WEB_FALLBACK_SCORE_THRESHOLD)
+    if use_web and Config.TAVILY_API_KEY:
+        results = results + search_web(query, k=2)
+
+    context_results = results
     context = _retrieval_to_context(context_results)
 
     # Citations are built AFTER synthesis, from the [n] markers the LLM actually
@@ -178,6 +167,7 @@ def retrieve(state: AgenticState) -> dict:
     return {
         "retrieval_results": [r.__dict__ for r in context_results],
         "context": context,
+        "use_web": use_web,
     }
 
 
