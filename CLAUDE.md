@@ -1,9 +1,3 @@
-# CLAUDE.md
-
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
-
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
-
 ## 1. Think Before Coding
 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
@@ -60,7 +54,15 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
-## 5. No Emojis in Code
+## 5. Response Type
+
+**The response must be less than 100 characters, unless elaborated explanations is asked.**
+- Respond to the ask in simplest and shortest way possible. 
+- The response should include technical jargons.
+- Response must include layman words and jargons easy to understand by any non-tech person.
+
+
+## 6. No Emojis in Code
 
 **Never add emojis to code or code-adjacent text.**
 
