@@ -10,7 +10,7 @@ class Config:
     MODEL_NAME = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
     # Total prompt+response token budget for the synthesis call. Retrieved-chunk
     # context is sized dynamically to whatever's left after the system prompt, chat
-    # history, and RESPONSE_TOKEN_RESERVE are subtracted (see agentic_orchestrator.py).
+    # history, and RESPONSE_TOKEN_RESERVE are subtracted (see backend/agents/synthesizer.py).
     MAX_CONTEXT_TOKENS = int(os.getenv("MAX_CONTEXT_TOKENS", "8192"))
     RESPONSE_TOKEN_RESERVE = int(os.getenv("RESPONSE_TOKEN_RESERVE", "1024"))
 
@@ -35,9 +35,14 @@ class Config:
     ENABLE_RERANKING = os.getenv("ENABLE_RERANKING", "true").lower() == "true"
     RERANKER_MODEL = os.getenv("RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
     RERANK_KEEP = int(os.getenv("RERANK_KEEP", "6"))
-    # Web search kicks in when the top retrieved chunk's score falls below this
-    # (cross-encoder relevance score; below 0 roughly means "not actually relevant").
-    WEB_FALLBACK_SCORE_THRESHOLD = float(os.getenv("WEB_FALLBACK_SCORE_THRESHOLD", "0.0"))
+    # Web search kicks in when the top retrieved chunk's confidence falls below this.
+    # Confidence is the cross-encoder's top score passed through a sigmoid, so it's a
+    # calibrated 0..1 value comparable to a real threshold (see backend/agents/reranker.py).
+    WEB_FALLBACK_SCORE_THRESHOLD = float(os.getenv("WEB_FALLBACK_SCORE_THRESHOLD", "0.7"))
+
+    # Retrieval rounds the Evaluator agent may request when it judges an answer
+    # incomplete/ungrounded (2 = initial pass + one retry). Bounds the retry loop.
+    MAX_RETRIEVAL_ROUNDS = int(os.getenv("MAX_RETRIEVAL_ROUNDS", "2"))
 
     ENABLE_BM25 = os.getenv("ENABLE_BM25", "true").lower() == "true"
     HYBRID_SEARCH_WEIGHT_VECTOR = float(os.getenv("HYBRID_SEARCH_WEIGHT_VECTOR", "0.6"))

@@ -3,13 +3,13 @@ Agent Entry Point
 =================
 
 Thin wrapper that delegates to the multi-agent orchestrator
-(``backend.agentic_orchestrator``) for backward compatibility.
+(``backend.agents``) for backward compatibility.
 """
 
 import logging
 from typing import Dict, List
 
-from backend.agentic_orchestrator import run_agentic_rag
+from backend.agents import run_agentic_rag
 
 logger = logging.getLogger(__name__)
 
