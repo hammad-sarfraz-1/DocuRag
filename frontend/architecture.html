@@ -223,6 +223,16 @@
             border-color: var(--accent);
             background: var(--accent-soft);
         }
+        .diag-box .jargon {
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            color: var(--accent-hover);
+            margin-bottom: 6px;
+        }
+        .diag-box p.plain { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.55; text-align: left; }
 
         /* Diagram arrows */
         .arrow-v { height: 30px; width: 2px; background: var(--arrow); position: relative; margin: 0 auto; }
@@ -430,7 +440,7 @@
                     <div class="diag-box highlight" style="width: 200px; padding: 24px 20px;">
                         <i data-lucide="git-merge" size="32"></i>
                         <strong>LangGraph</strong>
-                        <span>Multi-Agent Orchestrator<br>(Cache, Plan, Retrieve, Critic)</span>
+                        <span>6-Agent Orchestrator<br>Plan → Retrieve → Rerank → Search → Synthesize → Evaluate</span>
                     </div>
 
                     <div class="arrow-h"></div>
@@ -452,6 +462,104 @@
                 Building a demo RAG is easy. Building one that actually answers complex questions accurately is incredibly hard. Here is the evolution of my backend logic.
             </p>
         </div>
+
+        <div class="master-diagram" id="agent-flow">
+            <div class="diag-row">
+                <div class="diag-box">
+                    <i data-lucide="message-circle" size="24"></i>
+                    <strong>User Query</strong>
+                    <span>+ recent chat history</span>
+                </div>
+            </div>
+
+            <div class="arrow-v"></div>
+
+            <div class="diag-box highlight" style="width: 100%; max-width: 480px;">
+                <i data-lucide="compass" size="24"></i>
+                <strong>1. Planner</strong>
+                <span class="jargon">Heuristic router · 0 LLM calls</span>
+                <p class="plain">Checks whether the chat has any uploaded documents, then sets the retry budget (<code>MAX_RETRIEVAL_ROUNDS = 2</code>) and picks the starting path. A decision this simple doesn't need a model call — it's plain Python.</p>
+            </div>
+
+            <div class="arrow-v"></div>
+
+            <div class="diag-group" style="width: 100%; max-width: 720px;">
+                <span class="diag-group-title">Only if documents are uploaded</span>
+                <div class="diag-row">
+                    <div class="diag-box highlight" style="width: 300px;">
+                        <i data-lucide="search" size="20"></i>
+                        <strong>2. Retrieval</strong>
+                        <span class="jargon">Hybrid search · dense + sparse</span>
+                        <p class="plain">A ChromaDB vector search (semantic meaning) and a <code>BM25</code> keyword search (exact terms, IDs, acronyms) run side by side, then their rankings are merged with Reciprocal Rank Fusion (RRF).</p>
+                    </div>
+                    <div class="arrow-h"></div>
+                    <div class="diag-box highlight" style="width: 300px;">
+                        <i data-lucide="filter" size="20"></i>
+                        <strong>3. Reranker</strong>
+                        <span class="jargon">Cross-encoder + calibration</span>
+                        <p class="plain">A <code>cross-encoder</code> re-reads the query against each candidate chunk together (more precise than comparing embeddings), then a sigmoid turns its raw score into a clean 0–1 confidence.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="arrow-v"></div>
+
+            <div class="diag-box" style="width: 100%; max-width: 480px;">
+                <i data-lucide="git-branch" size="20"></i>
+                <strong>Confidence below 0.7?</strong>
+                <span class="jargon">Conditional edge (LangGraph)</span>
+                <p class="plain"><code>WEB_FALLBACK_SCORE_THRESHOLD = 0.7</code> — below this (or when there are no documents at all), local results aren't trusted enough to answer alone.</p>
+            </div>
+
+            <div class="arrow-v"></div>
+
+            <div class="diag-box highlight" style="width: 100%; max-width: 480px;">
+                <i data-lucide="globe" size="20"></i>
+                <strong>4. Web Search</strong>
+                <span class="jargon">Tavily Search API</span>
+                <p class="plain">Live web results — fetched only as a fallback for low-confidence or missing local documents, never as a default source when documents already answer confidently.</p>
+            </div>
+
+            <div class="arrow-v"></div>
+
+            <div class="diag-box highlight" style="width: 100%; max-width: 480px;">
+                <i data-lucide="edit-3" size="20"></i>
+                <strong>5. Synthesizer</strong>
+                <span class="jargon">Token-budgeted generation</span>
+                <p class="plain">Subtracts the system prompt, chat history, and a reserved reply allowance from <code>MAX_CONTEXT_TOKENS</code> to size the excerpt window, then asks Llama 3.3 70B (via Groq) for an answer with inline <code>[n]</code> citations for every claim.</p>
+            </div>
+
+            <div class="arrow-v"></div>
+
+            <div class="diag-box highlight" style="width: 100%; max-width: 480px;">
+                <i data-lucide="shield-check" size="20"></i>
+                <strong>6. Evaluator (Critic)</strong>
+                <span class="jargon">LLM-as-judge</span>
+                <p class="plain">An independent model call scores the answer's faithfulness, citation grounding, and completeness as structured JSON — a second opinion, not a rubber stamp on its own work.</p>
+            </div>
+
+            <div class="arrow-v"></div>
+
+            <div class="diag-box" style="width: 100%; max-width: 480px; border-style: dashed; border-color: var(--accent);">
+                <i data-lucide="refresh-cw" size="20"></i>
+                <strong>Not satisfied? Retry</strong>
+                <span class="jargon">Bounded self-correction loop</span>
+                <p class="plain">Loops back to Retrieval with a wider search (bigger <code>k</code>) instead of a fresh query — capped at 2 total rounds, so it always terminates and never hangs.</p>
+            </div>
+
+            <div class="arrow-v"></div>
+
+            <div class="diag-box highlight">
+                <i data-lucide="message-square" size="24"></i>
+                <strong>Final Answer</strong>
+                <span>Returned to the chat UI with its citations</span>
+            </div>
+        </div>
+        <p class="thoughtful-text" style="margin-top: -16px;">
+            When a chat has no documents at all, the Planner skips Retrieval and Reranker entirely —
+            straight to Web Search if it's available, or straight to the Synthesizer for plain
+            conversation if it isn't. No wasted hops for a chat with nothing to retrieve.
+        </p>
 
         <div class="story-block">
             <div class="story-card">
@@ -477,16 +585,20 @@
             </div>
 
             <div class="story-card">
-                <h4><i data-lucide="network"></i> Solution 2: Multi-Agent Orchestration (LangGraph)</h4>
+                <h4><i data-lucide="network"></i> Solution 2: A Real Multi-Agent Graph (LangGraph)</h4>
                 <p>
-                    To fix the multi-part question problem, I threw away my linear LangChain code and rewrote the core using <strong>LangGraph</strong>. I created a "state machine" of distinct agents:
+                    To fix the multi-part question problem, I threw away the single linear chain and rebuilt the core as a <strong>LangGraph state machine</strong> with six specialized agents, each owning exactly one job and one decision (diagram above):
                 </p>
                 <ul style="margin-left: 20px; color: #44433F; font-size: 14.5px; line-height: 1.6; margin-bottom: 12px;">
-                    <li><strong>Query Planner:</strong> Rewrites sloppy user questions into structured search queries.</li>
-                    <li><strong>The Critic Agent:</strong> This was my biggest breakthrough. After retrieving documents, an independent LLM prompt acts as a "judge". It reads the docs and asks, <em>"Is this enough to answer the user?"</em> If not, it loops back and forces the system to search again with a different query.</li>
+                    <li><strong>Planner:</strong> a fast, rule-based router — no extra LLM call — that checks whether the chat has documents and sets the retry budget for the run.</li>
+                    <li><strong>Retrieval:</strong> the hybrid BM25 + vector search, widened automatically if a retry round is triggered.</li>
+                    <li><strong>Reranker:</strong> cross-encodes the candidates and converts the top score into a calibrated 0–1 confidence value.</li>
+                    <li><strong>Web Search:</strong> only fires when that confidence drops below <code>0.7</code>, or when there are no documents at all — a fallback, never a default.</li>
+                    <li><strong>Synthesizer:</strong> builds a dynamic, token-budgeted context window (reserving room for the system prompt, chat history, and the model's own response) and generates the answer with inline <code>[n]</code> citations.</li>
+                    <li><strong>Evaluator (the Critic):</strong> the one place an independent LLM call earns its cost — it judges the answer's faithfulness, citation grounding, and completeness. If it isn't satisfied and documents exist, it sends the run back to Retrieval with a wider search, capped at two rounds total so it can never loop forever.</li>
                 </ul>
                 <p>
-                    By using <strong>FastAPI</strong> and <strong>Groq</strong> (which generates tokens blazingly fast), these multiple loops happen in seconds, ensuring the final output is 100% grounded in facts.
+                    By using <strong>FastAPI</strong> and <strong>Groq</strong> (which generates tokens blazingly fast), these extra passes still happen in seconds. <span class="good">The system now knows when it's unsure — it reaches for the web or asks for another retrieval round instead of guessing.</span>
                 </p>
             </div>
         </div>
