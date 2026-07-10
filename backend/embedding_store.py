@@ -2,6 +2,7 @@ from typing import List, Optional, Tuple
 import chromadb
 from chromadb.utils import embedding_functions
 from backend.config import Config
+from backend import answer_cache
 
 
 class VectorStore:
@@ -56,6 +57,7 @@ class VectorStore:
             ids=ids,
             metadatas=metadatas if metadatas else None,
         )
+        answer_cache.clear(chat_id)
 
     def similarity_search(
         self, chat_id: str, query: str, k: int = Config.RETRIEVAL_K
@@ -133,6 +135,7 @@ class VectorStore:
             collection.delete(where={"source": source})
         except Exception:
             pass
+        answer_cache.clear(chat_id)
 
     def delete_chat(self, chat_id: str):
         safe_id = self._safe_collection_name(chat_id)
@@ -140,3 +143,4 @@ class VectorStore:
             self.client.delete_collection(safe_id)
         except ValueError:
             pass
+        answer_cache.clear(chat_id)

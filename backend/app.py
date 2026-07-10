@@ -99,6 +99,7 @@ async def create_chat(name: str = Form("New Chat")):
     chat_id = str(uuid.uuid4())
     chat_metadata[chat_id] = {"name": name}
     _save_chat_metadata(chat_metadata)
+    chat_engine.create_chat(chat_id)
     return {"chat_id": chat_id, "name": name}
 
 
