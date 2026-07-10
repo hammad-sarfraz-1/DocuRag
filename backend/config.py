@@ -3,7 +3,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 class Config:
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
@@ -50,3 +49,8 @@ class Config:
 
     HOST = os.getenv("HOST", "0.0.0.0")
     PORT = int(os.getenv("PORT", "8000"))
+
+    # Semantic answer cache: skip the graph on a reworded repeat question.
+    # Conservative default — wrong cached answers are worse than a miss.
+    ENABLE_ANSWER_CACHE = os.getenv("ENABLE_ANSWER_CACHE", "true").lower() == "true"
+    CACHE_SIMILARITY_THRESHOLD = float(os.getenv("CACHE_SIMILARITY_THRESHOLD", "0.85"))
