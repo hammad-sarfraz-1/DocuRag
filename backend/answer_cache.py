@@ -25,7 +25,9 @@ def _collection(chat_id: str):
 
 
 def get(chat_id: str, question: str) -> Optional[dict]:
-    """Return {"answer": ..., "citations": [...]} on a semantic hit, else None."""
+    """Return {"answer", "citations", "similarity", "matched_question"} on a
+    semantic hit, else None. Use `best_match` to see the nearest score even
+    on a miss (for logging/debugging why a question didn't hit)."""
     collection = _collection(chat_id)
     if collection.count() == 0:
         return None
@@ -40,6 +42,23 @@ def get(chat_id: str, question: str) -> Optional[dict]:
     return {
         "answer": metadata["answer"],
         "citations": json.loads(metadata["citations"]),
+        "similarity": similarity,
+        "matched_question": results["documents"][0][0],
+    }
+
+
+def best_match(chat_id: str, question: str) -> Optional[dict]:
+    """Return {"similarity", "matched_question"} for the nearest cached
+    question regardless of threshold, or None if the cache is empty."""
+    collection = _collection(chat_id)
+    if collection.count() == 0:
+        return None
+    results = collection.query(query_texts=[question], n_results=1)
+    if not results["documents"] or not results["documents"][0]:
+        return None
+    return {
+        "similarity": 1 - results["distances"][0][0],
+        "matched_question": results["documents"][0][0],
     }
 
 
@@ -58,3 +77,14 @@ def clear(chat_id: str):
         _client.delete_collection(name)
     except (ValueError, chromadb.errors.NotFoundError):
         pass
+
+
+def clear_all():
+    """Clear every chat's cache. Documents are shared across chats, so a
+    change to the shared corpus can make ANY chat's cached answers stale."""
+    for collection in _client.list_collections():
+        if collection.name.startswith("cache_"):
+            try:
+                _client.delete_collection(collection.name)
+            except (ValueError, chromadb.errors.NotFoundError):
+                pass

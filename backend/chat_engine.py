@@ -76,18 +76,39 @@ class ChatEngine:
 
         cached = answer_cache.get(chat_id, question) if Config.ENABLE_ANSWER_CACHE else None
         if cached is not None:
-            result = {**cached, "cached": True}
-            _cache_logger.info("HIT  chat=%s question=%r", chat_id, question)
-            _chat_logger(chat_id).info("HIT  question=%r", question)
+            result = {
+                "answer": cached["answer"],
+                "citations": cached["citations"],
+                "cached": True,
+            }
+            _cache_logger.info(
+                "HIT  chat=%s question=%r similarity=%.4f matched=%r",
+                chat_id, question, cached["similarity"], cached["matched_question"],
+            )
+            _chat_logger(chat_id).info(
+                "HIT  question=%r similarity=%.4f matched=%r",
+                question, cached["similarity"], cached["matched_question"],
+            )
         else:
+            match = answer_cache.best_match(chat_id, question) if Config.ENABLE_ANSWER_CACHE else None
             result = supervisor_agent(
                 user_input=question,
                 chat_id=chat_id,
                 history=history,
             )
             result["cached"] = False
-            _cache_logger.info("MISS chat=%s question=%r", chat_id, question)
-            _chat_logger(chat_id).info("MISS question=%r", question)
+            if match is not None:
+                _cache_logger.info(
+                    "MISS chat=%s question=%r similarity=%.4f (threshold=%.2f) nearest=%r",
+                    chat_id, question, match["similarity"], Config.CACHE_SIMILARITY_THRESHOLD, match["matched_question"],
+                )
+                _chat_logger(chat_id).info(
+                    "MISS question=%r similarity=%.4f (threshold=%.2f) nearest=%r",
+                    question, match["similarity"], Config.CACHE_SIMILARITY_THRESHOLD, match["matched_question"],
+                )
+            else:
+                _cache_logger.info("MISS chat=%s question=%r (cache empty)", chat_id, question)
+                _chat_logger(chat_id).info("MISS question=%r (cache empty)", question)
             if Config.ENABLE_ANSWER_CACHE:
                 answer_cache.put(
                     chat_id, question, result["answer"], result.get("citations", [])
