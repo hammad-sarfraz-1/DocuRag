@@ -5,8 +5,16 @@ from backend.config import Config
 from backend import answer_cache
 
 
+DOCUMENTS_COLLECTION = "documents"
+
+
 class VectorStore:
-    """ChromaDB vector store for document chunk persistence and retrieval."""
+    """ChromaDB vector store for document chunk persistence and retrieval.
+
+    All chats share ONE collection: an upload is visible to every chat, and
+    deleting a chat never touches the shared documents. `chat_id` params are
+    kept on these methods for API compatibility but no longer affect scoping.
+    """
 
     def __init__(self):
         self.client = chromadb.PersistentClient(path=Config.PERSIST_DIR)
@@ -14,13 +22,9 @@ class VectorStore:
             model_name=Config.EMBEDDING_MODEL
         )
 
-    def _safe_collection_name(self, chat_id: str) -> str:
-        return chat_id.replace("-", "_")
-
-    def get_collection(self, chat_id: str):
-        safe_id = self._safe_collection_name(chat_id)
+    def get_collection(self, chat_id: str = None):
         return self.client.get_or_create_collection(
-            name=safe_id, embedding_function=self.embedding_fn
+            name=DOCUMENTS_COLLECTION, embedding_function=self.embedding_fn
         )
 
     def add_documents(
@@ -57,7 +61,7 @@ class VectorStore:
             ids=ids,
             metadatas=metadatas if metadatas else None,
         )
-        answer_cache.clear(chat_id)
+        answer_cache.clear_all()
 
     def similarity_search(
         self, chat_id: str, query: str, k: int = Config.RETRIEVAL_K
@@ -129,18 +133,15 @@ class VectorStore:
         return len(collection.get()["ids"])
 
     def delete_document(self, chat_id: str, source: str):
-        """Remove a single uploaded document (all its chunks) from a chat."""
+        """Remove an uploaded document (all its chunks) from the shared store."""
         collection = self.get_collection(chat_id)
         try:
             collection.delete(where={"source": source})
         except Exception:
             pass
-        answer_cache.clear(chat_id)
+        answer_cache.clear_all()
 
     def delete_chat(self, chat_id: str):
-        safe_id = self._safe_collection_name(chat_id)
-        try:
-            self.client.delete_collection(safe_id)
-        except ValueError:
-            pass
+        """Deleting a chat only clears its own cache — the shared document
+        store is untouched, so every other chat keeps working."""
         answer_cache.clear(chat_id)
