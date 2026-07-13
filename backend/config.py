@@ -14,8 +14,6 @@ class Config:
     RESPONSE_TOKEN_RESERVE = int(os.getenv("RESPONSE_TOKEN_RESERVE", "1024"))
 
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
-    CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
-    CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "150"))
     RETRIEVAL_K = int(os.getenv("RETRIEVAL_K", "8"))
     # When a chat holds this few chunks or fewer, skip top-k truncation and feed
     # every chunk to the LLM (rerank only to order them) so the right document is
@@ -24,6 +22,8 @@ class Config:
 
     PERSIST_DIR = os.getenv("PERSIST_DIR", "./chroma_db")
     CHAT_META_FILE = os.getenv("CHAT_META_FILE", "./chat_metadata.json")
+    # Raw uploaded files, kept so a citation can open the original document.
+    DOCUMENTS_DIR = os.getenv("DOCUMENTS_DIR", os.path.join(PERSIST_DIR, "documents"))
     # Kept inside PERSIST_DIR by default so chat history lands on the same
     # persisted volume as the vector store (survives restarts/redeploys).
     HISTORY_FILE = os.getenv("HISTORY_FILE", os.path.join(PERSIST_DIR, "chat_history.json"))

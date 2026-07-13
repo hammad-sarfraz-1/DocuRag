@@ -1,14 +1,18 @@
 import io
+import uuid
+from datetime import datetime, timezone
 from typing import List
 
 from pypdf import PdfReader
 from docx import Document
-try:
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
-except ImportError:  # older langchain (<0.2) kept it under langchain.text_splitter
-    from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_experimental.text_splitter import SemanticChunker
+from langchain_huggingface import HuggingFaceEmbeddings
 
 from backend.config import Config
+
+# Same embedding model used for retrieval/cache, so chunk boundaries are cut
+# where meaning actually shifts rather than at a fixed character count.
+_semantic_chunker = SemanticChunker(HuggingFaceEmbeddings(model_name=Config.EMBEDDING_MODEL))
 
 
 # ---------------------------------------------------------------------------
@@ -83,22 +87,29 @@ def extract_text(file_bytes: bytes, filename: str) -> str:
 
 
 def chunk_text(text: str) -> List[str]:
-    """Split text into overlapping chunks for embedding storage."""
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=Config.CHUNK_SIZE,
-        chunk_overlap=Config.CHUNK_OVERLAP,
-        separators=["\n\n", "\n", " ", ""],
-    )
-    return splitter.split_text(text)
+    """Split text into chunks at semantic boundaries (where consecutive
+    sentences' embeddings diverge), instead of a fixed character count."""
+    chunks = _semantic_chunker.split_text(text)
+    return [c for c in chunks if c.strip()]
 
 
 def build_chunk_metadata(chunks: List[str], source: str) -> List[dict]:
-    """Build per-chunk metadata dicts (used for source citation)."""
+    """Build per-chunk metadata dicts (used for source citation).
+
+    document_id/upload_date are stamped fresh on every upload, so a
+    re-upload of the same filename gets a new id and the latest timestamp —
+    add_documents() replaces the old chunks by `source`, so stale chunks
+    from a prior version never linger alongside the new ones.
+    """
+    document_id = str(uuid.uuid4())
+    upload_date = datetime.now(timezone.utc).isoformat()
     return [
         {
             "source": source,
             "chunk_index": i,
             "total_chunks": len(chunks),
+            "document_id": document_id,
+            "upload_date": upload_date,
         }
         for i in range(len(chunks))
     ]
