@@ -7,6 +7,7 @@ CONTAINER   := docurag_dev
 PORT        ?= 8000
 PERSIST_DIR := $(CURDIR)/chroma_db
 LOGS_DIR    := $(CURDIR)/logs
+CHAT_META   := $(CURDIR)/chat_metadata.json
 
 .DEFAULT_GOAL := help
 .PHONY: help build up down restart status logs clean
@@ -20,6 +21,7 @@ build:              ## Build the Docker image
 
 up:                 ## Start frontend + backend on $(PORT) (Docker) — run 'make build' first
 	@mkdir -p $(PERSIST_DIR) $(LOGS_DIR)
+	@test -f $(CHAT_META) || echo '{}' > $(CHAT_META)
 	@docker rm -f $(CONTAINER) >/dev/null 2>&1 || true
 	@echo "Starting http://localhost:$(PORT) (first boot downloads models, ~20s) ..."
 	@docker run -d --name $(CONTAINER) \
@@ -27,6 +29,7 @@ up:                 ## Start frontend + backend on $(PORT) (Docker) — run 'mak
 		-p $(PORT):8000 \
 		-v $(PERSIST_DIR):/app/chroma_db \
 		-v $(LOGS_DIR):/app/logs \
+		-v $(CHAT_META):/app/chat_metadata.json \
 		$(IMAGE) >/dev/null
 	@for i in $$(seq 1 90); do \
 		if curl -sf http://localhost:$(PORT)/health >/dev/null 2>&1; then \
