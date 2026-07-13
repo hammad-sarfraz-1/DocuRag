@@ -13,17 +13,19 @@ Routes
 - ``POST /chats/{chat_id}/upload`` — Upload files to a chat
 - ``POST /chats/{chat_id}/chat`` — Ask a question (returns answer + citations)
 - ``GET  /chats/{chat_id}/history`` — Retrieve chat message history
+- ``GET  /documents/{source}``   — Serve an original uploaded file
 - ``GET  /health``               — Health check
 """
 
 import json
 import logging
+import os
 import uuid
 from contextlib import asynccontextmanager
 from typing import List
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.config import Config
@@ -41,6 +43,14 @@ logger = logging.getLogger(__name__)
 
 vector_store = VectorStore()
 chat_engine = ChatEngine(vector_store)
+
+os.makedirs(Config.DOCUMENTS_DIR, exist_ok=True)
+
+
+def _document_path(source: str) -> str:
+    """Path for a raw uploaded file, keyed by its filename (the shared
+    document store is centralized, so one file = one path for everyone)."""
+    return os.path.join(Config.DOCUMENTS_DIR, os.path.basename(source))
 
 
 def _load_chat_metadata() -> dict:
@@ -144,10 +154,17 @@ async def upload_files(chat_id: str, files: List[UploadFile] = File(...)):
                     detail=f"No text could be extracted from {file.filename}.",
                 )
             chunks = chunk_text(text)
+            if not chunks:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Could not split {file.filename} into chunks.",
+                )
             metadatas = build_chunk_metadata(chunks, file.filename)
             # Add each file on its own so per-source replacement and id
             # namespacing in add_documents work correctly (one source per call).
             vector_store.add_documents(chat_id, chunks, metadatas)
+            with open(_document_path(file.filename), "wb") as f:
+                f.write(file_bytes)
             total_chunks += len(chunks)
             per_file.append({"filename": file.filename, "chunks": len(chunks)})
         except HTTPException:
@@ -165,12 +182,25 @@ async def upload_files(chat_id: str, files: List[UploadFile] = File(...)):
 
 @app.delete("/chats/{chat_id}/documents")
 async def delete_document(chat_id: str, source: str):
-    """Remove a single uploaded document (by filename) from a chat."""
+    """Remove a single uploaded document (by filename) from the shared store."""
     if chat_id not in chat_metadata:
         raise HTTPException(status_code=404, detail="Chat not found")
     vector_store.delete_document(chat_id, source)
     rebuild_bm25_index(chat_id)
+    try:
+        os.remove(_document_path(source))
+    except FileNotFoundError:
+        pass
     return {"status": "deleted", "source": source}
+
+
+@app.get("/documents/{source}")
+async def get_document(source: str):
+    """Serve the original uploaded file so a citation can open it directly."""
+    path = _document_path(source)
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="Document not found")
+    return FileResponse(path, filename=source)
 
 
 @app.post("/chats/{chat_id}/chat")
