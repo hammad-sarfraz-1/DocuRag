@@ -145,3 +145,11 @@ class ChatEngine:
         self.vector_store.delete_chat(chat_id)
         self.sessions.pop(chat_id, None)
         self._save_sessions()
+
+        # Close and detach the per-chat FileHandler so its open file
+        # descriptor is released — logging.getLogger() never forgets a name,
+        # so without this every deleted chat still leaks one FD forever.
+        chat_logger = logging.getLogger(f"chat.{chat_id}")
+        for handler in chat_logger.handlers[:]:
+            handler.close()
+            chat_logger.removeHandler(handler)

@@ -155,9 +155,9 @@ def synthesizer_agent(state: RagState) -> dict:
     try:
         resp = llm.invoke([SystemMessage(content=system_msg), HumanMessage(content=prompt)])
         answer = resp.content.strip()
-    except Exception as exc:
+    except Exception:
         logger.exception("Synthesis failed")
-        answer = f"I encountered an error generating the response: {exc}"
+        answer = "I ran into an issue generating a response. Please try asking again."
 
     citations = _citations_for_answer(answer, context_results)
 

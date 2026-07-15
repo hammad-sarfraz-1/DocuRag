@@ -55,10 +55,10 @@ def run_agentic_rag(
 
     try:
         final = graph.invoke(initial)
-    except Exception as exc:
+    except Exception:
         logger.exception("Agentic orchestrator failed")
         return {
-            "answer": f"An internal error occurred: {exc}",
+            "answer": "I ran into an issue generating a response. Please try asking again.",
             "citations": [],
         }
 
