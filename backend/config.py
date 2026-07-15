@@ -14,6 +14,11 @@ class Config:
     RESPONSE_TOKEN_RESERVE = int(os.getenv("RESPONSE_TOKEN_RESERVE", "1024"))
 
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+    # Hard ceiling on chunk size. SemanticChunker has no size limit of its own —
+    # for very uniform/repetitive text it can group far more than this into one
+    # chunk, so oversized chunks get a character-based fallback split (see
+    # backend/document_processor.py chunk_text()).
+    MAX_CHUNK_CHARS = int(os.getenv("MAX_CHUNK_CHARS", "2000"))
     RETRIEVAL_K = int(os.getenv("RETRIEVAL_K", "8"))
     # When a chat holds this few chunks or fewer, skip top-k truncation and feed
     # every chunk to the LLM (rerank only to order them) so the right document is
@@ -22,6 +27,9 @@ class Config:
 
     PERSIST_DIR = os.getenv("PERSIST_DIR", "./chroma_db")
     CHAT_META_FILE = os.getenv("CHAT_META_FILE", "./chat_metadata.json")
+    # Cap on a single uploaded file's size. 25MB comfortably covers PDF/DOCX/TXT
+    # use cases while bounding how much memory one upload can consume.
+    MAX_UPLOAD_SIZE_BYTES = int(os.getenv("MAX_UPLOAD_SIZE_BYTES", str(25 * 1024 * 1024)))
     # Raw uploaded files, kept so a citation can open the original document.
     DOCUMENTS_DIR = os.getenv("DOCUMENTS_DIR", os.path.join(PERSIST_DIR, "documents"))
     # Kept inside PERSIST_DIR by default so chat history lands on the same

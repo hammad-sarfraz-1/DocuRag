@@ -6,13 +6,22 @@ from typing import List
 from pypdf import PdfReader
 from docx import Document
 from langchain_experimental.text_splitter import SemanticChunker
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from backend.config import Config
+from backend.embeddings import LANGCHAIN_EMBEDDING_FN
 
 # Same embedding model used for retrieval/cache, so chunk boundaries are cut
 # where meaning actually shifts rather than at a fixed character count.
-_semantic_chunker = SemanticChunker(HuggingFaceEmbeddings(model_name=Config.EMBEDDING_MODEL))
+_semantic_chunker = SemanticChunker(LANGCHAIN_EMBEDDING_FN)
+
+# SemanticChunker has no size ceiling — pathological input (e.g. long runs of
+# near-duplicate paragraphs) can land in one giant chunk. Fallback splitter
+# only for chunks that exceed MAX_CHUNK_CHARS, with overlap so context isn't
+# lost at the new boundary.
+_fallback_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=Config.MAX_CHUNK_CHARS, chunk_overlap=200
+)
 
 
 # ---------------------------------------------------------------------------
@@ -86,11 +95,37 @@ def extract_text(file_bytes: bytes, filename: str) -> str:
         raise ValueError(f"Unsupported file type: {filename}")
 
 
+_CHUNK_OVERLAP_CHARS = 50
+
+
 def chunk_text(text: str) -> List[str]:
     """Split text into chunks at semantic boundaries (where consecutive
-    sentences' embeddings diverge), instead of a fixed character count."""
+    sentences' embeddings diverge), instead of a fixed character count.
+
+    Any resulting chunk longer than Config.MAX_CHUNK_CHARS is further split
+    by RecursiveCharacterTextSplitter, since SemanticChunker alone has no
+    size ceiling and can group pathological (e.g. repetitive) text into one
+    oversized chunk.
+
+    Each chunk after the first is then prefixed with the last
+    _CHUNK_OVERLAP_CHARS of the chunk before it, so a query whose answer
+    spans a chunk boundary still finds it in both chunks' embeddings.
+    """
     chunks = _semantic_chunker.split_text(text)
-    return [c for c in chunks if c.strip()]
+    result = []
+    for c in chunks:
+        if not c.strip():
+            continue
+        if len(c) > Config.MAX_CHUNK_CHARS:
+            result.extend(_fallback_splitter.split_text(c))
+        else:
+            result.append(c)
+    result = [c for c in result if c.strip()]
+
+    for i in range(1, len(result)):
+        overlap = result[i - 1][-_CHUNK_OVERLAP_CHARS:]
+        result[i] = overlap + result[i]
+    return result
 
 
 def build_chunk_metadata(chunks: List[str], source: str) -> List[dict]:
