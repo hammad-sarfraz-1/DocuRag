@@ -1,14 +1,13 @@
 import json
+import uuid
 from typing import List, Optional
 
 import chromadb
-from chromadb.utils import embedding_functions
 from backend.config import Config
+from backend.embeddings import CHROMA_EMBEDDING_FN
 
 _client = chromadb.PersistentClient(path=Config.PERSIST_DIR)
-_embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
-    model_name=Config.EMBEDDING_MODEL
-)
+_embedding_fn = CHROMA_EMBEDDING_FN
 
 
 def _safe_collection_name(chat_id: str) -> str:
@@ -24,10 +23,17 @@ def _collection(chat_id: str):
     )
 
 
-def get(chat_id: str, question: str) -> Optional[dict]:
+def get(chat_id: str, question: str, history_len: int = 0) -> Optional[dict]:
     """Return {"answer", "citations", "similarity", "matched_question"} on a
     semantic hit, else None. Use `best_match` to see the nearest score even
-    on a miss (for logging/debugging why a question didn't hit)."""
+    on a miss (for logging/debugging why a question didn't hit).
+
+    Only the FIRST question in a chat (history_len == 0) is eligible: a
+    follow-up's meaning can depend on prior turns (e.g. "is he married?"),
+    which the cache key can't capture, so any non-empty history is always
+    treated as a miss."""
+    if history_len > 0:
+        return None
     collection = _collection(chat_id)
     if collection.count() == 0:
         return None
@@ -62,11 +68,14 @@ def best_match(chat_id: str, question: str) -> Optional[dict]:
     }
 
 
-def put(chat_id: str, question: str, answer: str, citations: List[dict]):
+def put(chat_id: str, question: str, answer: str, citations: List[dict], history_len: int = 0):
+    """Only caches the first question in a chat — see `get` for why."""
+    if history_len > 0:
+        return
     collection = _collection(chat_id)
     collection.add(
         documents=[question],
-        ids=[f"q_{collection.count()}"],
+        ids=[str(uuid.uuid4())],
         metadatas=[{"answer": answer, "citations": json.dumps(citations)}],
     )
 

@@ -74,7 +74,11 @@ class ChatEngine:
         """Run the agent on a question and return ``{"answer": …, "citations": […]}``."""
         history = self.get_history(chat_id)
 
-        cached = answer_cache.get(chat_id, question) if Config.ENABLE_ANSWER_CACHE else None
+        cached = (
+            answer_cache.get(chat_id, question, history_len=len(history))
+            if Config.ENABLE_ANSWER_CACHE
+            else None
+        )
         if cached is not None:
             result = {
                 "answer": cached["answer"],
@@ -111,7 +115,8 @@ class ChatEngine:
                 _chat_logger(chat_id).info("MISS question=%r (cache empty)", question)
             if Config.ENABLE_ANSWER_CACHE:
                 answer_cache.put(
-                    chat_id, question, result["answer"], result.get("citations", [])
+                    chat_id, question, result["answer"], result.get("citations", []),
+                    history_len=len(history),
                 )
 
         # Persist to session history

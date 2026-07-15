@@ -18,12 +18,20 @@ def reranker_agent(state: RagState) -> dict:
     if Config.ENABLE_RERANKING:
         total = len(doc_results)
         keep = total if total <= Config.SMALL_CORPUS_CHUNKS else Config.RERANK_KEEP
-        ranked = reranker.rerank(query, doc_results, keep=keep)
+        ranked, reranked = reranker.rerank(query, doc_results, keep=keep)
     else:
-        ranked = doc_results
+        ranked, reranked = doc_results, False
 
-    top_score = ranked[0].score if ranked else float("-inf")
-    confidence = 1.0 / (1.0 + math.exp(-top_score))
+    # Only the cross-encoder's score is calibrated for this sigmoid. When
+    # reranking didn't actually run, `ranked[0].score` is a raw vector
+    # distance on a different scale, so there's no honest confidence number
+    # to report — leave it as None ("no signal") rather than feed it through
+    # a sigmoid calibrated for a different kind of score.
+    if reranked:
+        top_score = ranked[0].score if ranked else float("-inf")
+        confidence = 1.0 / (1.0 + math.exp(-top_score))
+    else:
+        confidence = None
 
     return {
         "ranked_results": [r.__dict__ for r in ranked],
@@ -34,7 +42,13 @@ def reranker_agent(state: RagState) -> dict:
 def route_after_reranker(state: RagState) -> str:
     # Only reached when has_documents is True (route_after_planner gates
     # entry to "retrieval"), so the gate is purely about retrieval quality.
-    low_confidence = state.get("retrieval_confidence", 0.0) < Config.WEB_FALLBACK_SCORE_THRESHOLD
+    # retrieval_confidence is None when reranking didn't run (disabled or
+    # model unavailable) — there's no calibrated signal in that case, so
+    # skip the gate and go straight to synthesis instead of guessing.
+    confidence = state.get("retrieval_confidence")
+    if confidence is None:
+        return "synthesizer"
+    low_confidence = confidence < Config.WEB_FALLBACK_SCORE_THRESHOLD
     if low_confidence and Config.TAVILY_API_KEY:
         return "web_search"
     return "synthesizer"

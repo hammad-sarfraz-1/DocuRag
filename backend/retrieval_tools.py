@@ -72,11 +72,11 @@ def rebuild_bm25_index(chat_id: str = None):
 def search_vector(chat_id: str, query: str, k: int = Config.RETRIEVAL_K) -> List[RetrievalResult]:
     results = vector_store.similarity_search_with_metadata(chat_id, query, k=k)
     out = []
-    for text, meta in results:
+    for text, meta, distance in results:
         out.append(RetrievalResult(
             text=text,
             metadata=meta or {},
-            score=meta.get("_distance", 0.0) if meta else 0.0,
+            score=distance,
             source="vector",
         ))
     return out
@@ -169,10 +169,13 @@ class Reranker:
 
     def rerank(
         self, query: str, results: List[RetrievalResult], keep: int = Config.RERANK_KEEP
-    ) -> List[RetrievalResult]:
+    ) -> Tuple[List[RetrievalResult], bool]:
+        """Returns (results, reranked) — `reranked` is False whenever the
+        cross-encoder didn't actually run, so callers know the scores are
+        NOT cross-encoder scores (e.g. still raw vector distances)."""
         self._lazy_load()
         if self._model is None or not results:
-            return results[:keep]
+            return results[:keep], False
 
         pairs = [(query, r.text[:512]) for r in results]
         try:
@@ -181,13 +184,13 @@ class Reranker:
                 scores = scores.tolist()
         except Exception as exc:
             logger.warning("Reranking failed (non-fatal): %s", exc)
-            return results[:keep]
+            return results[:keep], False
 
         for r, s in zip(results, scores):
             r.score = float(s)
 
         results.sort(key=lambda r: r.score, reverse=True)
-        return results[:keep]
+        return results[:keep], True
 
 
 reranker = Reranker()
