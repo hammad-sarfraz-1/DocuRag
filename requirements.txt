@@ -1,4 +1,12 @@
 # Pinned to the versions verified working together (built on Python 3.11).
+
+# CPU-only torch build: regular PyPI only serves the CUDA-bundled wheel
+# under the bare "torch" name (multi-GB Nvidia libs this app never uses).
+# Pin the +cpu variant from PyTorch's own index so nothing below pulls the
+# CUDA one back in as a transitive dependency.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.13.0+cpu
+
 fastapi==0.138.0
 uvicorn[standard]==0.49.0
 python-multipart==0.0.32
@@ -18,6 +26,8 @@ langchain-core==1.4.8
 langchain-community==0.4.2
 langchain-text-splitters==1.1.2
 langchain-groq==1.1.3
+langchain-experimental==0.4.2
+langchain-huggingface==1.2.2
 langgraph==1.2.6
 groq==0.37.1
 

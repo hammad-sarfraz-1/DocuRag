@@ -1,25 +1,29 @@
+import hashlib
 from typing import List, Optional, Tuple
 import chromadb
-from chromadb.utils import embedding_functions
 from backend.config import Config
+from backend import answer_cache
+from backend.embeddings import CHROMA_EMBEDDING_FN
+
+
+DOCUMENTS_COLLECTION = "documents"
 
 
 class VectorStore:
-    """ChromaDB vector store for document chunk persistence and retrieval."""
+    """ChromaDB vector store for document chunk persistence and retrieval.
+
+    All chats share ONE collection: an upload is visible to every chat, and
+    deleting a chat never touches the shared documents. `chat_id` params are
+    kept on these methods for API compatibility but no longer affect scoping.
+    """
 
     def __init__(self):
         self.client = chromadb.PersistentClient(path=Config.PERSIST_DIR)
-        self.embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name=Config.EMBEDDING_MODEL
-        )
+        self.embedding_fn = CHROMA_EMBEDDING_FN
 
-    def _safe_collection_name(self, chat_id: str) -> str:
-        return chat_id.replace("-", "_")
-
-    def get_collection(self, chat_id: str):
-        safe_id = self._safe_collection_name(chat_id)
+    def get_collection(self, chat_id: str = None):
         return self.client.get_or_create_collection(
-            name=safe_id, embedding_function=self.embedding_fn
+            name=DOCUMENTS_COLLECTION, embedding_function=self.embedding_fn
         )
 
     def add_documents(
@@ -32,18 +36,41 @@ class VectorStore:
 
         # Figure out which document these chunks belong to. We replace only
         # THIS document's existing chunks (so re-uploading the same file
-        # refreshes it) while leaving other documents in the chat untouched.
+        # refreshes it) while leaving other documents untouched.
         source = None
+        document_id = None
         if metadatas and metadatas[0]:
             source = metadatas[0].get("source")
+            document_id = metadatas[0].get("document_id")
+        content_hash = hashlib.sha256("".join(chunks).encode("utf-8")).hexdigest()
+        for m in metadatas or []:
+            m["content_hash"] = content_hash
 
         if source:
+            existing = collection.get(where={"source": source}, include=["metadatas"])
+            existing_metas = existing.get("metadatas") or []
+            if existing_metas:
+                existing_hash = existing_metas[0].get("content_hash")
+                # Collections are shared across all chats now, so a same-named
+                # upload with different content is NOT necessarily a new
+                # version of the same document — it may be an unrelated file
+                # from another chat that happens to share a filename. We can't
+                # tell those apart from filename alone, so rather than
+                # silently deleting someone else's document, refuse and make
+                # the caller handle it (e.g. rename the file before upload).
+                if existing_hash is not None and existing_hash != content_hash:
+                    raise ValueError(
+                        f"A different document named '{source}' already exists "
+                        f"in the shared store. Rename the file and re-upload, "
+                        f"or delete the existing '{source}' first."
+                    )
             try:
                 collection.delete(where={"source": source})
             except Exception:
                 pass
-            # Namespace ids by source so chunks from different files never collide.
-            ids = [f"{source}::chunk_{i}" for i in range(len(chunks))]
+            # Namespace ids by document_id (unique per upload) so re-running
+            # this same upload never collides with itself or anything else.
+            ids = [f"{document_id}::chunk_{i}" for i in range(len(chunks))]
         else:
             # Fallback (no source metadata): preserve old single-doc behaviour.
             existing_ids = collection.get()["ids"]
@@ -56,6 +83,7 @@ class VectorStore:
             ids=ids,
             metadatas=metadatas if metadatas else None,
         )
+        answer_cache.clear_all()
 
     def similarity_search(
         self, chat_id: str, query: str, k: int = Config.RETRIEVAL_K
@@ -67,19 +95,21 @@ class VectorStore:
 
     def similarity_search_with_metadata(
         self, chat_id: str, query: str, k: int = Config.RETRIEVAL_K
-    ) -> List[Tuple[str, dict]]:
-        """Return (text, metadata) pairs so the agent can cite sources."""
+    ) -> List[Tuple[str, dict, float]]:
+        """Return (text, metadata, distance) triples so the agent can cite
+        sources and score results using Chroma's real distance."""
         collection = self.get_collection(chat_id)
         results = collection.query(
             query_texts=[query],
             n_results=k,
-            include=["documents", "metadatas"],
+            include=["documents", "metadatas", "distances"],
         )
         if not results["documents"] or not results["documents"][0]:
             return []
         docs = results["documents"][0]
         metas = results["metadatas"][0] if results["metadatas"] else [{}] * len(docs)
-        return list(zip(docs, metas))
+        dists = results["distances"][0] if results["distances"] else [0.0] * len(docs)
+        return list(zip(docs, metas, dists))
 
     def get_all_documents(self, chat_id: str) -> List[str]:
         """Return every chunk stored for a chat (for full-context prompts)."""
@@ -127,16 +157,15 @@ class VectorStore:
         return len(collection.get()["ids"])
 
     def delete_document(self, chat_id: str, source: str):
-        """Remove a single uploaded document (all its chunks) from a chat."""
+        """Remove an uploaded document (all its chunks) from the shared store."""
         collection = self.get_collection(chat_id)
         try:
             collection.delete(where={"source": source})
         except Exception:
             pass
+        answer_cache.clear_all()
 
     def delete_chat(self, chat_id: str):
-        safe_id = self._safe_collection_name(chat_id)
-        try:
-            self.client.delete_collection(safe_id)
-        except ValueError:
-            pass
+        """Deleting a chat only clears its own cache — the shared document
+        store is untouched, so every other chat keeps working."""
+        answer_cache.clear(chat_id)

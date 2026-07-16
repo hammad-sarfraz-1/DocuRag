@@ -1,14 +1,27 @@
 import io
+import uuid
+from datetime import datetime, timezone
 from typing import List
 
 from pypdf import PdfReader
 from docx import Document
-try:
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
-except ImportError:  # older langchain (<0.2) kept it under langchain.text_splitter
-    from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_experimental.text_splitter import SemanticChunker
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from backend.config import Config
+from backend.embeddings import LANGCHAIN_EMBEDDING_FN
+
+# Same embedding model used for retrieval/cache, so chunk boundaries are cut
+# where meaning actually shifts rather than at a fixed character count.
+_semantic_chunker = SemanticChunker(LANGCHAIN_EMBEDDING_FN)
+
+# SemanticChunker has no size ceiling — pathological input (e.g. long runs of
+# near-duplicate paragraphs) can land in one giant chunk. Fallback splitter
+# only for chunks that exceed MAX_CHUNK_CHARS, with overlap so context isn't
+# lost at the new boundary.
+_fallback_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=Config.MAX_CHUNK_CHARS, chunk_overlap=200
+)
 
 
 # ---------------------------------------------------------------------------
@@ -82,23 +95,56 @@ def extract_text(file_bytes: bytes, filename: str) -> str:
         raise ValueError(f"Unsupported file type: {filename}")
 
 
+_CHUNK_OVERLAP_CHARS = 50
+
+
 def chunk_text(text: str) -> List[str]:
-    """Split text into overlapping chunks for embedding storage."""
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=Config.CHUNK_SIZE,
-        chunk_overlap=Config.CHUNK_OVERLAP,
-        separators=["\n\n", "\n", " ", ""],
-    )
-    return splitter.split_text(text)
+    """Split text into chunks at semantic boundaries (where consecutive
+    sentences' embeddings diverge), instead of a fixed character count.
+
+    Any resulting chunk longer than Config.MAX_CHUNK_CHARS is further split
+    by RecursiveCharacterTextSplitter, since SemanticChunker alone has no
+    size ceiling and can group pathological (e.g. repetitive) text into one
+    oversized chunk.
+
+    Each chunk after the first is then prefixed with the last
+    _CHUNK_OVERLAP_CHARS of the chunk before it, so a query whose answer
+    spans a chunk boundary still finds it in both chunks' embeddings.
+    """
+    chunks = _semantic_chunker.split_text(text)
+    result = []
+    for c in chunks:
+        if not c.strip():
+            continue
+        if len(c) > Config.MAX_CHUNK_CHARS:
+            result.extend(_fallback_splitter.split_text(c))
+        else:
+            result.append(c)
+    result = [c for c in result if c.strip()]
+
+    for i in range(1, len(result)):
+        overlap = result[i - 1][-_CHUNK_OVERLAP_CHARS:]
+        result[i] = overlap + result[i]
+    return result
 
 
 def build_chunk_metadata(chunks: List[str], source: str) -> List[dict]:
-    """Build per-chunk metadata dicts (used for source citation)."""
+    """Build per-chunk metadata dicts (used for source citation).
+
+    document_id/upload_date are stamped fresh on every upload, so a
+    re-upload of the same filename gets a new id and the latest timestamp —
+    add_documents() replaces the old chunks by `source`, so stale chunks
+    from a prior version never linger alongside the new ones.
+    """
+    document_id = str(uuid.uuid4())
+    upload_date = datetime.now(timezone.utc).isoformat()
     return [
         {
             "source": source,
             "chunk_index": i,
             "total_chunks": len(chunks),
+            "document_id": document_id,
+            "upload_date": upload_date,
         }
         for i in range(len(chunks))
     ]

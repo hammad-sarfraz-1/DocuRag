@@ -19,6 +19,7 @@ env/
 
 # Vector store / database
 chroma_db/
+chat_meta/
 
 # IDE
 .vscode/
@@ -40,6 +41,7 @@ Desktop.ini
 requirements-working*.txt
 
 # Logs
+logs/
 *.log
 *.journal
 

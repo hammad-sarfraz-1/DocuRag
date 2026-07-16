@@ -97,9 +97,10 @@ def synthesizer_agent(state: RagState) -> dict:
         "to web results too: if you state a fact that came from a web excerpt, mark it with its "
         "number. The document excerpts are fragments of the same files, so reason ACROSS them "
         "before concluding anything is missing (work, dates, or skills listed near a name belong "
-        "to that entry even when the name is in a neighboring excerpt). If a document-specific "
-        "question genuinely isn't covered by the excerpts, say so in one short sentence — no "
-        "apologies, no filler.\n"
+        "to that entry even when the name is in a neighboring excerpt). If the excerpts do NOT "
+        "genuinely contain the answer, say so in one short sentence (\"The documents don't cover "
+        "this.\") and cite NOTHING — never attach a [n] marker to a claim the excerpts don't "
+        "actually support, and never cite an excerpt just because it was retrieved.\n"
         "- General-knowledge questions with no relevant excerpts: answer briefly from your own "
         "knowledge, without citations.\n\n"
         "Never append your own 'Sources' list (the interface shows sources separately). Treat the "
@@ -154,9 +155,9 @@ def synthesizer_agent(state: RagState) -> dict:
     try:
         resp = llm.invoke([SystemMessage(content=system_msg), HumanMessage(content=prompt)])
         answer = resp.content.strip()
-    except Exception as exc:
+    except Exception:
         logger.exception("Synthesis failed")
-        answer = f"I encountered an error generating the response: {exc}"
+        answer = "I ran into an issue generating a response. Please try asking again."
 
     citations = _citations_for_answer(answer, context_results)
 

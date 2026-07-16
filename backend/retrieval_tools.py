@@ -20,34 +20,35 @@ class RetrievalResult:
 
 
 class BM25Index:
+    """One shared keyword index over the shared document store (all chats
+    read the same corpus, so there's nothing to key per chat)."""
+
     def __init__(self, k1: float = 1.5, b: float = 0.75):
         self.k1 = k1
         self.b = b
-        self._index: dict[str, "BM25Okapi"] = {}
+        self._bm25: Optional["BM25Okapi"] = None
         # Keep the exact (text, metadata) list the index was built from, so a
         # hit index maps back to the right chunk AND its metadata — no second
         # get() that could return rows in a different order.
-        self._docs: dict[str, List[Tuple[str, dict]]] = {}
+        self._docs: List[Tuple[str, dict]] = []
 
     def _tokenize(self, text: str) -> List[str]:
         return re.findall(r"\w+", text.lower())
 
-    def build(self, chat_id: str, docs_with_meta: List[Tuple[str, dict]]):
+    def build(self, docs_with_meta: List[Tuple[str, dict]]):
         from rank_bm25 import BM25Okapi
 
         tokenized = [self._tokenize(text) for text, _ in docs_with_meta]
-        bm25 = BM25Okapi(tokenized, k1=self.k1, b=self.b)
-        self._index[chat_id] = bm25
-        self._docs[chat_id] = docs_with_meta
+        self._bm25 = BM25Okapi(tokenized, k1=self.k1, b=self.b)
+        self._docs = docs_with_meta
 
-    def docs(self, chat_id: str) -> List[Tuple[str, dict]]:
-        return self._docs.get(chat_id, [])
+    def docs(self) -> List[Tuple[str, dict]]:
+        return self._docs
 
-    def search(self, chat_id: str, query: str, k: int) -> List[Tuple[int, float]]:
-        if chat_id not in self._index:
+    def search(self, query: str, k: int) -> List[Tuple[int, float]]:
+        if self._bm25 is None:
             return []
-        bm25 = self._index[chat_id]
-        scores = bm25.get_scores(self._tokenize(query))
+        scores = self._bm25.get_scores(self._tokenize(query))
         top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:k]
         return [(i, scores[i]) for i in top_indices if scores[i] > 0]
 
@@ -55,27 +56,27 @@ class BM25Index:
 _bm25_index = BM25Index()
 
 
-def _ensure_bm25_index(chat_id: str):
-    if chat_id not in _bm25_index._index:
+def _ensure_bm25_index(chat_id: str = None):
+    if _bm25_index._bm25 is None:
         docs = vector_store.get_all_documents_with_metadata(chat_id)
         if docs:
-            _bm25_index.build(chat_id, docs)
+            _bm25_index.build(docs)
 
 
-def rebuild_bm25_index(chat_id: str):
+def rebuild_bm25_index(chat_id: str = None):
     docs = vector_store.get_all_documents_with_metadata(chat_id)
     if docs:
-        _bm25_index.build(chat_id, docs)
+        _bm25_index.build(docs)
 
 
 def search_vector(chat_id: str, query: str, k: int = Config.RETRIEVAL_K) -> List[RetrievalResult]:
     results = vector_store.similarity_search_with_metadata(chat_id, query, k=k)
     out = []
-    for text, meta in results:
+    for text, meta, distance in results:
         out.append(RetrievalResult(
             text=text,
             metadata=meta or {},
-            score=meta.get("_distance", 0.0) if meta else 0.0,
+            score=distance,
             source="vector",
         ))
     return out
@@ -83,8 +84,8 @@ def search_vector(chat_id: str, query: str, k: int = Config.RETRIEVAL_K) -> List
 
 def search_bm25(chat_id: str, query: str, k: int = Config.RETRIEVAL_K) -> List[RetrievalResult]:
     _ensure_bm25_index(chat_id)
-    docs = _bm25_index.docs(chat_id)
-    hits = _bm25_index.search(chat_id, query, k=k)
+    docs = _bm25_index.docs()
+    hits = _bm25_index.search(query, k=k)
     out = []
     for idx, score in hits:
         if idx < len(docs):
@@ -168,10 +169,13 @@ class Reranker:
 
     def rerank(
         self, query: str, results: List[RetrievalResult], keep: int = Config.RERANK_KEEP
-    ) -> List[RetrievalResult]:
+    ) -> Tuple[List[RetrievalResult], bool]:
+        """Returns (results, reranked) — `reranked` is False whenever the
+        cross-encoder didn't actually run, so callers know the scores are
+        NOT cross-encoder scores (e.g. still raw vector distances)."""
         self._lazy_load()
         if self._model is None or not results:
-            return results[:keep]
+            return results[:keep], False
 
         pairs = [(query, r.text[:512]) for r in results]
         try:
@@ -180,13 +184,13 @@ class Reranker:
                 scores = scores.tolist()
         except Exception as exc:
             logger.warning("Reranking failed (non-fatal): %s", exc)
-            return results[:keep]
+            return results[:keep], False
 
         for r, s in zip(results, scores):
             r.score = float(s)
 
         results.sort(key=lambda r: r.score, reverse=True)
-        return results[:keep]
+        return results[:keep], True
 
 
 reranker = Reranker()

@@ -3,7 +3,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 class Config:
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
@@ -15,8 +14,11 @@ class Config:
     RESPONSE_TOKEN_RESERVE = int(os.getenv("RESPONSE_TOKEN_RESERVE", "1024"))
 
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
-    CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
-    CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "150"))
+    # Hard ceiling on chunk size. SemanticChunker has no size limit of its own —
+    # for very uniform/repetitive text it can group far more than this into one
+    # chunk, so oversized chunks get a character-based fallback split (see
+    # backend/document_processor.py chunk_text()).
+    MAX_CHUNK_CHARS = int(os.getenv("MAX_CHUNK_CHARS", "2000"))
     RETRIEVAL_K = int(os.getenv("RETRIEVAL_K", "8"))
     # When a chat holds this few chunks or fewer, skip top-k truncation and feed
     # every chunk to the LLM (rerank only to order them) so the right document is
@@ -25,6 +27,11 @@ class Config:
 
     PERSIST_DIR = os.getenv("PERSIST_DIR", "./chroma_db")
     CHAT_META_FILE = os.getenv("CHAT_META_FILE", "./chat_metadata.json")
+    # Cap on a single uploaded file's size. 25MB comfortably covers PDF/DOCX/TXT
+    # use cases while bounding how much memory one upload can consume.
+    MAX_UPLOAD_SIZE_BYTES = int(os.getenv("MAX_UPLOAD_SIZE_BYTES", str(25 * 1024 * 1024)))
+    # Raw uploaded files, kept so a citation can open the original document.
+    DOCUMENTS_DIR = os.getenv("DOCUMENTS_DIR", os.path.join(PERSIST_DIR, "documents"))
     # Kept inside PERSIST_DIR by default so chat history lands on the same
     # persisted volume as the vector store (survives restarts/redeploys).
     HISTORY_FILE = os.getenv("HISTORY_FILE", os.path.join(PERSIST_DIR, "chat_history.json"))
@@ -50,3 +57,8 @@ class Config:
 
     HOST = os.getenv("HOST", "0.0.0.0")
     PORT = int(os.getenv("PORT", "8000"))
+
+    # Semantic answer cache: skip the graph on a reworded repeat question.
+    # Conservative default — wrong cached answers are worse than a miss.
+    ENABLE_ANSWER_CACHE = os.getenv("ENABLE_ANSWER_CACHE", "true").lower() == "true"
+    CACHE_SIMILARITY_THRESHOLD = float(os.getenv("CACHE_SIMILARITY_THRESHOLD", "0.85"))

@@ -356,6 +356,8 @@
                     <span class="tech-tag">Groq (Llama 3)</span>
                     <span class="tech-tag">ChromaDB</span>
                     <span class="tech-tag">BM25</span>
+                    <span class="tech-tag">Semantic Chunker</span>
+                    <span class="tech-tag">Semantic Answer Cache</span>
                 </div>
             </div>
 
@@ -426,7 +428,7 @@
                         <div class="diag-box highlight">
                             <i data-lucide="database" size="20"></i>
                             <strong>ChromaDB</strong>
-                            <span>Dense Vectors</span>
+                            <span>Dense Vectors<br>One shared store, all chats</span>
                         </div>
                         <div class="diag-box highlight">
                             <i data-lucide="file-text" size="20"></i>
@@ -474,11 +476,20 @@
 
             <div class="arrow-v"></div>
 
+            <div class="diag-box" style="width: 100%; max-width: 480px; border-style: dashed; border-color: var(--accent);">
+                <i data-lucide="zap" size="20"></i>
+                <strong>0. Semantic Answer Cache</strong>
+                <span class="jargon">Cosine similarity · per chat · before the graph runs</span>
+                <p class="plain">Embeds the question and checks it against that chat's past questions in ChromaDB. A similarity <code>&ge; CACHE_SIMILARITY_THRESHOLD</code> returns the stored answer immediately — the entire graph below is skipped. On a miss, the graph runs and the new answer is cached. Cleared automatically whenever any document is uploaded or deleted, since a cached answer is only valid for the document set it was generated against.</p>
+            </div>
+
+            <div class="arrow-v"></div>
+
             <div class="diag-box highlight" style="width: 100%; max-width: 480px;">
                 <i data-lucide="compass" size="24"></i>
                 <strong>1. Planner</strong>
                 <span class="jargon">Heuristic router · 0 LLM calls</span>
-                <p class="plain">Checks whether the chat has any uploaded documents, then sets the retry budget (<code>MAX_RETRIEVAL_ROUNDS = 2</code>) and picks the starting path. A decision this simple doesn't need a model call — it's plain Python.</p>
+                <p class="plain">Checks whether the shared document store has anything uploaded, then sets the retry budget (<code>MAX_RETRIEVAL_ROUNDS = 2</code>) and picks the starting path. A decision this simple doesn't need a model call — it's plain Python.</p>
             </div>
 
             <div class="arrow-v"></div>
@@ -590,7 +601,7 @@
                     To fix the multi-part question problem, I threw away the single linear chain and rebuilt the core as a <strong>LangGraph state machine</strong> with six specialized agents, each owning exactly one job and one decision (diagram above):
                 </p>
                 <ul style="margin-left: 20px; color: #44433F; font-size: 14.5px; line-height: 1.6; margin-bottom: 12px;">
-                    <li><strong>Planner:</strong> a fast, rule-based router — no extra LLM call — that checks whether the chat has documents and sets the retry budget for the run.</li>
+                    <li><strong>Planner:</strong> a fast, rule-based router — no extra LLM call — that checks whether the shared store has any documents and sets the retry budget for the run.</li>
                     <li><strong>Retrieval:</strong> the hybrid BM25 + vector search, widened automatically if a retry round is triggered.</li>
                     <li><strong>Reranker:</strong> cross-encodes the candidates and converts the top score into a calibrated 0–1 confidence value.</li>
                     <li><strong>Web Search:</strong> only fires when that confidence drops below <code>0.7</code>, or when there are no documents at all — a fallback, never a default.</li>
@@ -599,6 +610,36 @@
                 </ul>
                 <p>
                     By using <strong>FastAPI</strong> and <strong>Groq</strong> (which generates tokens blazingly fast), these extra passes still happen in seconds. <span class="good">The system now knows when it's unsure — it reaches for the web or asks for another retrieval round instead of guessing.</span>
+                </p>
+            </div>
+
+            <div class="story-card">
+                <h4><i data-lucide="scissors"></i> Solution 3: Semantic Chunking, Not Fixed-Size</h4>
+                <p>
+                    Splitting documents every <code>N</code> characters is the naive default, and it cuts sentences and ideas in half at arbitrary boundaries. A chunk can end mid-thought, so the retriever hands the LLM half an answer.
+                </p>
+                <p>
+                    Uploads are now split with a <strong>semantic chunker</strong>: consecutive sentences are embedded and a chunk boundary is only cut where meaning actually shifts, not at a character count. <span class="good">Each chunk stays a coherent unit of meaning, which is what the vector search is comparing against in the first place.</span>
+                </p>
+            </div>
+
+            <div class="story-card">
+                <h4><i data-lucide="layers"></i> Solution 4: One Shared Document Store, Not One Per Chat</h4>
+                <p>
+                    Documents used to live in a separate ChromaDB collection per chat — upload a file in chat A, and chat B couldn't see it. That's a surprising wall for a document Q&amp;A tool: colleagues comparing notes on the same file had to re-upload it into every new conversation.
+                </p>
+                <p>
+                    Every chat now reads from and writes to <strong>one shared collection</strong>. Upload once, and it's instantly retrievable from any chat. Deleting a chat only removes that chat's history and its own answer cache — <span class="good">the shared documents, and every other chat's access to them, are completely untouched.</span>
+                </p>
+            </div>
+
+            <div class="story-card">
+                <h4><i data-lucide="link"></i> Solution 5: Citations You Can Actually Open</h4>
+                <p>
+                    Two more guardrails close the loop between "the model said so" and "you can verify it." First, the Synthesizer is explicitly told never to attach a <code>[n]</code> marker to a claim the excerpts don't genuinely support — if the documents don't cover the question, it says so in one sentence and cites nothing, rather than pointing at an excerpt that doesn't actually answer it.
+                </p>
+                <p>
+                    Second, every citation chip in the UI is a real link — <span class="good">clicking one opens the original uploaded file in a new tab</span>, served from disk by the backend, not just a filename you have to go find yourself.
                 </p>
             </div>
         </div>

@@ -24,7 +24,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN pip install --upgrade pip
 
-# Install pinned dependencies first (better layer caching).
+# Install pinned dependencies first (better layer caching). requirements.txt
+# pins the CPU-only torch build itself, so nothing here pulls in CUDA.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

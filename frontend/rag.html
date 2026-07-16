@@ -146,7 +146,7 @@
         .citations { margin-top: 16px; padding: 12px 14px 13px; background: var(--raised); border: 1px solid var(--border); border-radius: 14px; }
         .citations-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); font-weight: 700; }
         .citations-head .count { background: var(--accent-soft); color: var(--accent-hover); border-radius: 999px; padding: 1px 8px; font-size: 11px; letter-spacing: 0; }
-        .citation-item { display: flex; gap: 10px; padding: 9px 10px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); margin-bottom: 6px; transition: border-color 0.15s ease, background 0.15s ease; }
+        .citation-item { display: flex; gap: 10px; padding: 9px 10px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); margin-bottom: 6px; transition: border-color 0.15s ease, background 0.15s ease; text-decoration: none; color: inherit; }
         .citation-item:last-child { margin-bottom: 0; }
         .citation-item:hover { border-color: var(--border-strong); background: #F6F4EC; }
         .citation-item .badge { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 7px; display: flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; }
@@ -566,13 +566,18 @@
                         const n = g.parts.length;
                         const partLabel = n > 1 ? (n + ' passages') : (n === 1 ? 'part ' + g.parts[0] : '');
                         const part = partLabel ? '<span class="src-part">' + partLabel + '</span>' : '';
-                        html += '<div class="citation-item">' +
-                            '<span class="badge">' + idx + '</span>' +
+                        const isWeb = g.source.startsWith('Web:') || g.source === 'Web search';
+                        const nameSpan = '<span class="src-name">' + docIcon + escapeHtml(g.source) + part + '</span>';
+                        const itemInner = '<span class="badge">' + idx + '</span>' +
                             '<span class="src-body">' +
-                                '<span class="src-name">' + docIcon + escapeHtml(g.source) + part + '</span>' +
+                                nameSpan +
                                 (g.snippet ? '<span class="src-snippet">' + escapeHtml(g.snippet) + '</span>' : '') +
-                            '</span>' +
-                        '</div>';
+                            '</span>';
+                        if (isWeb) {
+                            html += '<div class="citation-item">' + itemInner + '</div>';
+                        } else {
+                            html += '<a class="citation-item" href="/documents/' + encodeURIComponent(g.source) + '" target="_blank" rel="noopener noreferrer">' + itemInner + '</a>';
+                        }
                     }
                     html += '</div>';
                 }
