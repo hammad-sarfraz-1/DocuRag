@@ -61,6 +61,11 @@ status:             ## Show whether the app is running
 logs:               ## Follow the server log
 	@docker logs -f --tail 50 $(CONTAINER)
 
-clean:              ## Stop the app and remove the container
+clean:              ## Stop the app and wipe chroma_db/, chat history, and logs
 	@$(MAKE) --no-print-directory down >/dev/null 2>&1 || true
+	@docker run --rm \
+		-v $(PERSIST_DIR):/target/chroma_db \
+		-v $(LOGS_DIR):/target/logs \
+		-v $(CHAT_META_DIR):/target/chat_meta \
+		alpine sh -c 'rm -rf /target/chroma_db/* /target/chroma_db/.[!.]* /target/logs/* /target/logs/.[!.]* /target/chat_meta/* /target/chat_meta/.[!.]*' 2>/dev/null || true
 	@echo "Cleaned."
