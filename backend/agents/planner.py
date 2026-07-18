@@ -1,5 +1,5 @@
 from backend.config import Config
-from backend.agents.state import RagState
+from backend.agents.state import RagState, RouteName
 from backend.agents.utils import _has_uploaded_docs
 
 
@@ -15,7 +15,7 @@ def planner_agent(state: RagState) -> dict:
 
 def route_after_planner(state: RagState) -> str:
     if state["has_documents"]:
-        return "retrieval"
+        return RouteName.CLARIFIER
     if Config.TAVILY_API_KEY:
-        return "web_search"
-    return "synthesizer"
+        return RouteName.WEB_SEARCH
+    return RouteName.SYNTHESIZER

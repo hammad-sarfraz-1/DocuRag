@@ -2,7 +2,7 @@ import math
 
 from backend.config import Config
 from backend.retrieval_tools import RetrievalResult, reranker
-from backend.agents.state import RagState
+from backend.agents.state import RagState, RouteName
 
 
 def reranker_agent(state: RagState) -> dict:
@@ -41,14 +41,14 @@ def reranker_agent(state: RagState) -> dict:
 
 def route_after_reranker(state: RagState) -> str:
     # Only reached when has_documents is True (route_after_planner gates
-    # entry to "retrieval"), so the gate is purely about retrieval quality.
+    # entry to RETRIEVAL), so the gate is purely about retrieval quality.
     # retrieval_confidence is None when reranking didn't run (disabled or
     # model unavailable) — there's no calibrated signal in that case, so
     # skip the gate and go straight to synthesis instead of guessing.
     confidence = state.get("retrieval_confidence")
     if confidence is None:
-        return "synthesizer"
+        return RouteName.SYNTHESIZER
     low_confidence = confidence < Config.WEB_FALLBACK_SCORE_THRESHOLD
     if low_confidence and Config.TAVILY_API_KEY:
-        return "web_search"
-    return "synthesizer"
+        return RouteName.WEB_SEARCH
+    return RouteName.SYNTHESIZER

@@ -28,12 +28,11 @@ def get(chat_id: str, question: str, history_len: int = 0) -> Optional[dict]:
     semantic hit, else None. Use `best_match` to see the nearest score even
     on a miss (for logging/debugging why a question didn't hit).
 
-    Only the FIRST question in a chat (history_len == 0) is eligible: a
-    follow-up's meaning can depend on prior turns (e.g. "is he married?"),
-    which the cache key can't capture, so any non-empty history is always
-    treated as a miss."""
-    if history_len > 0:
-        return None
+    Every question in a chat is cache-eligible, not just the first — the
+    cache is already scoped per chat_id (one collection per chat), so a
+    repeated follow-up here can only ever match against this same chat's
+    own prior turns, not another chat's. `history_len` is accepted for
+    call-site compatibility but no longer restricts eligibility."""
     collection = _collection(chat_id)
     if collection.count() == 0:
         return None
@@ -69,9 +68,7 @@ def best_match(chat_id: str, question: str) -> Optional[dict]:
 
 
 def put(chat_id: str, question: str, answer: str, citations: List[dict], history_len: int = 0):
-    """Only caches the first question in a chat — see `get` for why."""
-    if history_len > 0:
-        return
+    """Caches every question in a chat — see `get` for why this is safe."""
     collection = _collection(chat_id)
     collection.add(
         documents=[question],

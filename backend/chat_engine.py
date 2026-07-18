@@ -113,7 +113,10 @@ class ChatEngine:
             else:
                 _cache_logger.info("MISS chat=%s question=%r (cache empty)", chat_id, question)
                 _chat_logger(chat_id).info("MISS question=%r (cache empty)", question)
-            if Config.ENABLE_ANSWER_CACHE:
+            # Never cache a clarifying question — it's an answer to "which
+            # document did you mean", not to the user's actual question, so
+            # reusing it for a differently-worded question later would be wrong.
+            if Config.ENABLE_ANSWER_CACHE and not result.get("needs_clarification"):
                 answer_cache.put(
                     chat_id, question, result["answer"], result.get("citations", []),
                     history_len=len(history),
@@ -130,6 +133,12 @@ class ChatEngine:
                 # Persist citations alongside the message so they survive a chat
                 # reopen (the /history endpoint returns these dicts verbatim).
                 "citations": result.get("citations", []),
+                # Tagged when this message IS a clarifying question (Clarifier
+                # agent), so the NEXT turn can tell "the user is now resolving
+                # an ambiguity" apart from an ordinary follow-up, and resume
+                # the original question instead of treating the reply
+                # ("yes, the agreement") as a brand new question to retrieve.
+                "needs_clarification": result.get("needs_clarification", False),
             }
         )
         self._save_sessions()

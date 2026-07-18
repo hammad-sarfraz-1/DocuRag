@@ -6,7 +6,8 @@ from langchain_core.messages import HumanMessage
 from langgraph.graph import END
 
 from backend.config import Config
-from backend.agents.state import RagState
+from backend.agents.prompts import EVALUATOR_PROMPT_TEMPLATE
+from backend.agents.state import RagState, RouteName
 from backend.agents.utils import llm
 
 logger = logging.getLogger(__name__)
@@ -48,19 +49,10 @@ def evaluator_agent(state: RagState) -> dict:
             "retrieval_round": round_num + 1,
         }
 
-    eval_prompt = (
-        f"Question: {state['query']}\n\n"
-        f"Retrieved excerpts:\n{context[:4000]}\n\n"
-        f"Generated answer:\n{state.get('answer', '')}\n\n"
-        "Judge the answer strictly against the excerpts. Respond with ONLY a JSON "
-        "object, no other text:\n"
-        '{"faithful": true/false, "grounded": true/false, "complete": true/false, '
-        '"retry": true/false, "reason": "<one short sentence>"}\n\n'
-        "faithful = the answer makes no claims beyond what the excerpts support.\n"
-        "grounded = every factual claim in the answer is backed by a cited excerpt.\n"
-        "complete = the excerpts, if sufficient, are used to fully answer the question.\n"
-        "retry = true ONLY if a broader second retrieval round could plausibly surface "
-        "information the answer is currently missing."
+    eval_prompt = EVALUATOR_PROMPT_TEMPLATE.format(
+        query=state["query"],
+        context=context[:4000],
+        answer=state.get("answer", ""),
     )
 
     try:
@@ -81,5 +73,5 @@ def route_after_evaluator(state: RagState) -> str:
         and state.get("has_documents", False)
         and state.get("retrieval_round", 0) < max_rounds
     ):
-        return "retrieval"
+        return RouteName.RETRIEVAL
     return END
