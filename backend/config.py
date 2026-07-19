@@ -55,6 +55,19 @@ class Config:
     HYBRID_SEARCH_WEIGHT_VECTOR = float(os.getenv("HYBRID_SEARCH_WEIGHT_VECTOR", "0.6"))
     HYBRID_SEARCH_WEIGHT_BM25 = float(os.getenv("HYBRID_SEARCH_WEIGHT_BM25", "0.4"))
 
+    # Timeout/retry for each external service call, plus a circuit breaker on
+    # Groq so a sustained outage stops burning retries on every request.
+    GROQ_TIMEOUT = float(os.getenv("GROQ_TIMEOUT", "60"))
+    GROQ_MAX_RETRIES = int(os.getenv("GROQ_MAX_RETRIES", "3"))
+    GROQ_CIRCUIT_BREAKER_THRESHOLD = int(os.getenv("GROQ_CIRCUIT_BREAKER_THRESHOLD", "5"))
+    GROQ_CIRCUIT_BREAKER_COOLDOWN = float(os.getenv("GROQ_CIRCUIT_BREAKER_COOLDOWN", "30"))
+
+    TAVILY_TIMEOUT = float(os.getenv("TAVILY_TIMEOUT", "10"))
+    TAVILY_MAX_RETRIES = int(os.getenv("TAVILY_MAX_RETRIES", "2"))
+
+    CHROMA_TIMEOUT = float(os.getenv("CHROMA_TIMEOUT", "5"))
+    CHROMA_MAX_RETRIES = int(os.getenv("CHROMA_MAX_RETRIES", "1"))
+
     HOST = os.getenv("HOST", "0.0.0.0")
     PORT = int(os.getenv("PORT", "8000"))
 

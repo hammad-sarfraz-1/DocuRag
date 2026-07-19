@@ -4,6 +4,7 @@ import chromadb
 from backend.config import Config
 from backend import answer_cache
 from backend.embeddings import CHROMA_EMBEDDING_FN
+from backend.resilience import ServiceUnavailable, call_with_retry
 
 
 DOCUMENTS_COLLECTION = "documents"
@@ -90,19 +91,29 @@ class VectorStore:
     ) -> List[str]:
         """Return only document text for the top-k results."""
         collection = self.get_collection(chat_id)
-        results = collection.query(query_texts=[query], n_results=k)
+        results = call_with_retry(
+            lambda: collection.query(query_texts=[query], n_results=k),
+            service="chroma", chat_id=chat_id,
+            timeout=Config.CHROMA_TIMEOUT, attempts=Config.CHROMA_MAX_RETRIES,
+        )
         return results["documents"][0] if results["documents"] else []
 
     def similarity_search_with_metadata(
         self, chat_id: str, query: str, k: int = Config.RETRIEVAL_K
     ) -> List[Tuple[str, dict, float]]:
         """Return (text, metadata, distance) triples so the agent can cite
-        sources and score results using Chroma's real distance."""
+        sources and score results using Chroma's real distance. Raises
+        ServiceUnavailable if Chroma doesn't respond within the retry budget —
+        callers (search_vector) fall back to BM25-only rather than erroring."""
         collection = self.get_collection(chat_id)
-        results = collection.query(
-            query_texts=[query],
-            n_results=k,
-            include=["documents", "metadatas", "distances"],
+        results = call_with_retry(
+            lambda: collection.query(
+                query_texts=[query],
+                n_results=k,
+                include=["documents", "metadatas", "distances"],
+            ),
+            service="chroma", chat_id=chat_id,
+            timeout=Config.CHROMA_TIMEOUT, attempts=Config.CHROMA_MAX_RETRIES,
         )
         if not results["documents"] or not results["documents"][0]:
             return []

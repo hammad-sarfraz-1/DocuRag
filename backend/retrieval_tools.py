@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple
 
 from backend.config import Config
 from backend.embedding_store import VectorStore
+from backend.resilience import ServiceUnavailable, call_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,11 @@ def rebuild_bm25_index(chat_id: str = None):
 
 
 def search_vector(chat_id: str, query: str, k: int = Config.RETRIEVAL_K) -> List[RetrievalResult]:
-    results = vector_store.similarity_search_with_metadata(chat_id, query, k=k)
+    try:
+        results = vector_store.similarity_search_with_metadata(chat_id, query, k=k)
+    except ServiceUnavailable as exc:
+        logger.warning("chat=%s Chroma unavailable, falling back to BM25-only: %s", chat_id, exc)
+        return []
     out = []
     for text, meta, distance in results:
         out.append(RetrievalResult(
@@ -133,24 +138,34 @@ def search_hybrid(
     return [e["result"] for e in ranked]
 
 
-def search_web(query: str, k: int = 3) -> List[RetrievalResult]:
-    try:
+def search_web(query: str, k: int = 3, chat_id: str = "") -> List[RetrievalResult]:
+    def _do_search():
         from tavily import TavilyClient
 
         tavily = TavilyClient(api_key=Config.TAVILY_API_KEY)
-        resp = tavily.search(query, max_results=k)
-        results = []
-        for r in resp.get("results", []):
-            results.append(RetrievalResult(
-                text=f"{r['title']}\n{r['content']}",
-                metadata={"url": r.get("url", ""), "title": r.get("title", "")},
-                score=r.get("score", 0.0),
-                source="web",
-            ))
-        return results
-    except Exception as exc:
-        logger.warning("Web search unavailable: %s", exc)
+        return tavily.search(query, max_results=k)
+
+    try:
+        resp = call_with_retry(
+            _do_search,
+            service="tavily",
+            chat_id=chat_id,
+            timeout=Config.TAVILY_TIMEOUT,
+            attempts=Config.TAVILY_MAX_RETRIES,
+        )
+    except ServiceUnavailable as exc:
+        logger.warning("chat=%s Web search unavailable: %s", chat_id, exc)
         return []
+
+    results = []
+    for r in resp.get("results", []):
+        results.append(RetrievalResult(
+            text=f"{r['title']}\n{r['content']}",
+            metadata={"url": r.get("url", ""), "title": r.get("title", "")},
+            score=r.get("score", 0.0),
+            source="web",
+        ))
+    return results
 
 
 class Reranker:

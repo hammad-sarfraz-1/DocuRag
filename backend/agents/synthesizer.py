@@ -15,7 +15,7 @@ from backend.agents.prompts import (
     SYNTHESIZER_USER_PROMPT_TEMPLATE,
 )
 from backend.agents.state import Citation, RagState
-from backend.agents.utils import _fmt, chat_logger, llm
+from backend.agents.utils import _fmt, chat_logger, invoke_llm
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +128,7 @@ def synthesizer_agent(state: RagState) -> dict:
     )
 
     try:
-        resp = llm.invoke([SystemMessage(content=system_msg), HumanMessage(content=prompt)])
+        resp = invoke_llm([SystemMessage(content=system_msg), HumanMessage(content=prompt)], state["chat_id"])
         answer = resp.content.strip()
     except Exception as exc:
         logger.exception("Synthesis failed")
@@ -136,5 +136,6 @@ def synthesizer_agent(state: RagState) -> dict:
         answer = SYNTHESIS_FAILURE_MESSAGE
 
     citations = _citations_for_answer(answer, context_results)
+    answer = re.sub(r"\s?\[[\d,\s]+\]", "", answer).strip()
 
     return {"context": context, "answer": answer, "citations": citations}
