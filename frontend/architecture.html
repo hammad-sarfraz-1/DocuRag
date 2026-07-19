@@ -364,13 +364,10 @@
             <div class="tech-col">
                 <h3><i data-lucide="server" size="20"></i> Production Infrastructure</h3>
                 <p style="color: var(--muted); font-size: 13px; margin-bottom: 16px;">
-                    The reality check. Containerized, reverse-proxied, and hardened against bot attacks.
+                    The reality check. Containerized, with persisted volumes for data that must survive a restart.
                 </p>
                 <div class="tech-tags">
                     <span class="tech-tag">Docker</span>
-                    <span class="tech-tag">Cloud VPS</span>
-                    <span class="tech-tag">Nginx</span>
-                    <span class="tech-tag">fail2ban</span>
                     <span class="tech-tag">Linux / Ubuntu</span>
                 </div>
             </div>
@@ -381,7 +378,7 @@
         <div class="section-header">
             <h2><span class="num">1</span> End-to-End Request Lifecycle</h2>
             <p class="thoughtful-text">
-                How a simple question from a user travels through the security layer, hits the backend, and gets processed by the agentic swarm.
+                How a simple question from a user travels from the browser into the container and gets processed by the agentic swarm.
             </p>
         </div>
 
@@ -391,24 +388,6 @@
                     <i data-lucide="monitor" size="24"></i>
                     <strong>User Browser</strong>
                     <span>Sends query via UI</span>
-                </div>
-            </div>
-
-            <div class="arrow-v"></div>
-
-            <div class="diag-group" style="width: 100%; max-width: 400px;">
-                <span class="diag-group-title">Cloud Server (Ubuntu)</span>
-
-                <div class="diag-box highlight" style="width: 100%; margin-bottom: 16px;">
-                    <i data-lucide="shield-alert" size="20"></i>
-                    <strong>fail2ban</strong>
-                    <span>Bans IPs probing SSH/Ports</span>
-                </div>
-
-                <div class="diag-box" style="width: 100%;">
-                    <i data-lucide="lock" size="24"></i>
-                    <strong>Nginx Proxy</strong>
-                    <span>Terminates SSL, Rate Limits</span>
                 </div>
             </div>
 
@@ -442,7 +421,7 @@
                     <div class="diag-box highlight" style="width: 200px; padding: 24px 20px;">
                         <i data-lucide="git-merge" size="32"></i>
                         <strong>LangGraph</strong>
-                        <span>6-Agent Orchestrator<br>Plan → Retrieve → Rerank → Search → Synthesize → Evaluate</span>
+                        <span>7-Agent Orchestrator<br>Plan → Clarify → Retrieve → Rerank → Search → Synthesize → Evaluate</span>
                     </div>
 
                     <div class="arrow-h"></div>
@@ -494,19 +473,28 @@
 
             <div class="arrow-v"></div>
 
+            <div class="diag-box highlight" style="width: 100%; max-width: 480px;">
+                <i data-lucide="help-circle" size="20"></i>
+                <strong>2. Clarifier</strong>
+                <span class="jargon">Ambiguity check · skipped when the question names its own topic</span>
+                <p class="plain">Only runs when multiple documents exist and there's prior conversation to be vague against. First checks deterministically whether the question itself names a document (word-matching against real filenames) — if so, skips straight to Retrieval. Otherwise asks an LLM whether a follow-up like "what were the issues?" is genuinely ambiguous about which document it means, and if so, ends the run with a clarifying question instead of guessing. Resolving the reply reconnects it to the original question, not the bare reply text.</p>
+            </div>
+
+            <div class="arrow-v"></div>
+
             <div class="diag-group" style="width: 100%; max-width: 720px;">
-                <span class="diag-group-title">Only if documents are uploaded</span>
+                <span class="diag-group-title">Only if documents are uploaded and not ambiguous</span>
                 <div class="diag-row">
                     <div class="diag-box highlight" style="width: 300px;">
                         <i data-lucide="search" size="20"></i>
-                        <strong>2. Retrieval</strong>
+                        <strong>3. Retrieval</strong>
                         <span class="jargon">Hybrid search · dense + sparse</span>
                         <p class="plain">A ChromaDB vector search (semantic meaning) and a <code>BM25</code> keyword search (exact terms, IDs, acronyms) run side by side, then their rankings are merged with Reciprocal Rank Fusion (RRF).</p>
                     </div>
                     <div class="arrow-h"></div>
                     <div class="diag-box highlight" style="width: 300px;">
                         <i data-lucide="filter" size="20"></i>
-                        <strong>3. Reranker</strong>
+                        <strong>4. Reranker</strong>
                         <span class="jargon">Cross-encoder + calibration</span>
                         <p class="plain">A <code>cross-encoder</code> re-reads the query against each candidate chunk together (more precise than comparing embeddings), then a sigmoid turns its raw score into a clean 0–1 confidence.</p>
                     </div>
@@ -526,7 +514,7 @@
 
             <div class="diag-box highlight" style="width: 100%; max-width: 480px;">
                 <i data-lucide="globe" size="20"></i>
-                <strong>4. Web Search</strong>
+                <strong>5. Web Search</strong>
                 <span class="jargon">Tavily Search API</span>
                 <p class="plain">Live web results — fetched only as a fallback for low-confidence or missing local documents, never as a default source when documents already answer confidently.</p>
             </div>
@@ -535,7 +523,7 @@
 
             <div class="diag-box highlight" style="width: 100%; max-width: 480px;">
                 <i data-lucide="edit-3" size="20"></i>
-                <strong>5. Synthesizer</strong>
+                <strong>6. Synthesizer</strong>
                 <span class="jargon">Token-budgeted generation</span>
                 <p class="plain">Subtracts the system prompt, chat history, and a reserved reply allowance from <code>MAX_CONTEXT_TOKENS</code> to size the excerpt window, then asks Llama 3.3 70B (via Groq) for an answer with inline <code>[n]</code> citations for every claim.</p>
             </div>
@@ -544,7 +532,7 @@
 
             <div class="diag-box highlight" style="width: 100%; max-width: 480px;">
                 <i data-lucide="shield-check" size="20"></i>
-                <strong>6. Evaluator (Critic)</strong>
+                <strong>7. Evaluator (Critic)</strong>
                 <span class="jargon">LLM-as-judge</span>
                 <p class="plain">An independent model call scores the answer's faithfulness, citation grounding, and completeness as structured JSON — a second opinion, not a rubber stamp on its own work.</p>
             </div>
@@ -586,7 +574,7 @@
             </div>
 
             <div class="story-card">
-                <h4><i data-lucide="check-circle"></i> Solution 1: Hybrid Retrieval (Chroma + BM25)</h4>
+                <h4><i data-lucide="check-circle"></i> Hybrid Retrieval (Chroma + BM25)</h4>
                 <p>
                     To fix the keyword matching problem, I realized I couldn't rely solely on embeddings. I implemented <strong>BM25</strong>, a sparse keyword search algorithm.
                 </p>
@@ -596,12 +584,13 @@
             </div>
 
             <div class="story-card">
-                <h4><i data-lucide="network"></i> Solution 2: A Real Multi-Agent Graph (LangGraph)</h4>
+                <h4><i data-lucide="network"></i> A Real Multi-Agent Graph (LangGraph)</h4>
                 <p>
-                    To fix the multi-part question problem, I threw away the single linear chain and rebuilt the core as a <strong>LangGraph state machine</strong> with six specialized agents, each owning exactly one job and one decision (diagram above):
+                    To fix the multi-part question problem, I threw away the single linear chain and rebuilt the core as a <strong>LangGraph state machine</strong> with seven specialized agents, each owning exactly one job and one decision (diagram above):
                 </p>
                 <ul style="margin-left: 20px; color: #44433F; font-size: 14.5px; line-height: 1.6; margin-bottom: 12px;">
                     <li><strong>Planner:</strong> a fast, rule-based router — no extra LLM call — that checks whether the shared store has any documents and sets the retry budget for the run.</li>
+                    <li><strong>Clarifier:</strong> catches ambiguous follow-ups ("what were the issues?" across several documents) and asks which document before guessing — skipped instantly when the question already names one.</li>
                     <li><strong>Retrieval:</strong> the hybrid BM25 + vector search, widened automatically if a retry round is triggered.</li>
                     <li><strong>Reranker:</strong> cross-encodes the candidates and converts the top score into a calibrated 0–1 confidence value.</li>
                     <li><strong>Web Search:</strong> only fires when that confidence drops below <code>0.7</code>, or when there are no documents at all — a fallback, never a default.</li>
@@ -614,7 +603,7 @@
             </div>
 
             <div class="story-card">
-                <h4><i data-lucide="scissors"></i> Solution 3: Semantic Chunking, Not Fixed-Size</h4>
+                <h4><i data-lucide="scissors"></i> Semantic Chunking, Not Fixed-Size</h4>
                 <p>
                     Splitting documents every <code>N</code> characters is the naive default, and it cuts sentences and ideas in half at arbitrary boundaries. A chunk can end mid-thought, so the retriever hands the LLM half an answer.
                 </p>
@@ -624,7 +613,7 @@
             </div>
 
             <div class="story-card">
-                <h4><i data-lucide="layers"></i> Solution 4: One Shared Document Store, Not One Per Chat</h4>
+                <h4><i data-lucide="layers"></i> One Shared Document Store, Not One Per Chat</h4>
                 <p>
                     Documents used to live in a separate ChromaDB collection per chat — upload a file in chat A, and chat B couldn't see it. That's a surprising wall for a document Q&amp;A tool: colleagues comparing notes on the same file had to re-upload it into every new conversation.
                 </p>
@@ -634,7 +623,7 @@
             </div>
 
             <div class="story-card">
-                <h4><i data-lucide="link"></i> Solution 5: Citations You Can Actually Open</h4>
+                <h4><i data-lucide="link"></i> Citations You Can Actually Open</h4>
                 <p>
                     Two more guardrails close the loop between "the model said so" and "you can verify it." First, the Synthesizer is explicitly told never to attach a <code>[n]</code> marker to a claim the excerpts don't genuinely support — if the documents don't cover the question, it says so in one sentence and cites nothing, rather than pointing at an excerpt that doesn't actually answer it.
                 </p>
@@ -642,47 +631,14 @@
                     Second, every citation chip in the UI is a real link — <span class="good">clicking one opens the original uploaded file in a new tab</span>, served from disk by the backend, not just a filename you have to go find yourself.
                 </p>
             </div>
-        </div>
-    </section>
-
-    <section class="section" id="infrastructure">
-        <div class="section-header">
-            <h2><span class="num">3</span> Infrastructure: Surviving Production</h2>
-            <p class="thoughtful-text">
-                Developing locally with <code>uvicorn main:app --reload</code> using WatchFiles is a great developer experience. However, putting that directly on the internet is a disaster waiting to happen. Here is my production deployment philosophy.
-            </p>
-        </div>
-
-        <div class="story-block">
-            <div class="story-card">
-                <h4><i data-lucide="box"></i> Why Docker? Fixing "It works on my machine"</h4>
-                <p>
-                    When I first tried moving my Python code to a server, I ran into endless dependency conflicts. Different Python versions, missing C++ build tools for ChromaDB, etc.
-                </p>
-                <p>
-                    I wrote a comprehensive <code>Dockerfile</code> that packages the OS, Python, Uvicorn, FastAPI, and all ML dependencies into a single immutable image. Now, deployment is just <code>docker run</code>. I use Docker volumes to ensure my Chroma vector database persists even if the container reboots.
-                </p>
-            </div>
 
             <div class="story-card">
-                <h4><i data-lucide="server"></i> Why a self-managed cloud VM over Vercel/Heroku?</h4>
+                <h4><i data-lucide="help-circle"></i> Ask, Don't Guess, When a Follow-Up Is Ambiguous</h4>
                 <p>
-                    Managed services are easy, but they abstract away the system layer and get incredibly expensive when dealing with persistent file storage (like local vector DBs) and long-running websocket/async tasks.
+                    "What data do you have?" → three documents listed. "And what were the issues?" → which one? Answering across all three, or guessing one, both fail silently. The old flow had no way to tell the difference between "answerable" and "needs a human to pick."
                 </p>
                 <p>
-                    By provisioning my own <strong>cloud VM</strong> instance, I have total control over the Linux environment. It proves I can manage memory, monitor CPU usage, and build cost-effective infrastructure from scratch.
-                </p>
-            </div>
-
-            <div class="story-card">
-                <h4><i data-lucide="shield"></i> Nginx &amp; fail2ban: The Hostile Internet</h4>
-                <p>
-                    You don't realize how hostile the internet is until you tail your server's auth logs. Within hours of booting my server, I saw automated scripts from random IP addresses trying to brute-force my SSH port (Port 22).
-                </p>
-                <p>
-                    <span class="good">Here is how I secured the system:</span><br>
-                    1. <strong>Nginx Reverse Proxy:</strong> Uvicorn is not designed to face the public internet securely. I put Nginx in front of it to handle SSL/TLS encryption, serve static files, and rate-limit aggressive requests.<br>
-                    2. <strong>fail2ban:</strong> I installed this service to actively monitor my Linux logs. If an IP fails to log in 5 times within 10 minutes, fail2ban automatically updates the firewall rules to drop all traffic from that IP.
+                    The <strong>Clarifier</strong> agent sits right after the Planner. It's skipped instantly whenever the question already names its document (matched deterministically against real filenames, no LLM call needed), and only reaches for the LLM when a short follow-up genuinely could mean more than one thing. When it asks, <span class="good">the original question is preserved</span> — answering "the agreement" resumes exactly what was asked, instead of retrieving on the bare reply text.
                 </p>
             </div>
         </div>

@@ -12,6 +12,7 @@ from backend.agents.reranker import reranker_agent, route_after_reranker
 from backend.agents.web_search import web_search_agent
 from backend.agents.synthesizer import synthesizer_agent
 from backend.agents.evaluator import evaluator_agent, route_after_evaluator
+from backend.agents.utils import chat_logger
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +62,9 @@ def run_agentic_rag(
 
     try:
         final = graph.invoke(initial)
-    except Exception:
+    except Exception as exc:
         logger.exception("Agentic orchestrator failed")
+        chat_logger(chat_id).error("Agentic orchestrator failed: %s", exc)
         return {
             "answer": AGENTIC_ORCHESTRATOR_FAILURE_MESSAGE,
             "citations": [],

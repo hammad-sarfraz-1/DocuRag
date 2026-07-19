@@ -8,7 +8,7 @@ from langgraph.graph import END
 
 from backend.agents.prompts import CLARIFIER_FALLBACK_QUESTION, CLARIFIER_PROMPT_TEMPLATE
 from backend.agents.state import RagState, RouteName
-from backend.agents.utils import _fmt, llm, vector_store
+from backend.agents.utils import _fmt, chat_logger, llm, vector_store
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +129,7 @@ def clarifier_agent(state: RagState) -> dict:
         verdict = _parse_verdict(resp.content)
     except Exception as exc:
         logger.warning("Clarifier judging failed, skipping clarification: %s", exc)
+        chat_logger(chat_id).error("Clarifier judging failed: %s", exc)
         return {"needs_clarification": False, "clarifying_question": ""}
 
     if not verdict["ambiguous"]:

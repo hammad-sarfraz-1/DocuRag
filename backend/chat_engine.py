@@ -2,34 +2,15 @@
 
 import json
 import logging
-import os
 from typing import Dict, List
 
 from backend.config import Config
 from backend.embedding_store import VectorStore
 from backend.agent import supervisor_agent
+from backend.agents.utils import _file_logger, chat_logger as _chat_logger
 from backend import answer_cache
 
 logger = logging.getLogger(__name__)
-
-LOGS_DIR = "logs"
-os.makedirs(LOGS_DIR, exist_ok=True)
-
-
-def _file_logger(name: str, filename: str) -> logging.Logger:
-    log = logging.getLogger(name)
-    log.setLevel(logging.INFO)
-    if not log.handlers:
-        handler = logging.FileHandler(os.path.join(LOGS_DIR, filename))
-        handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
-        log.addHandler(handler)
-    return log
-
-
-def _chat_logger(chat_id: str) -> logging.Logger:
-    """One log file per chat: logs/{chat_id}.log."""
-    return _file_logger(f"chat.{chat_id}", f"{chat_id}.log")
-
 
 _cache_logger = _file_logger("answer_cache", "answer_cache.log")
 

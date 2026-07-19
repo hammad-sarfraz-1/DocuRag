@@ -8,7 +8,7 @@ from langgraph.graph import END
 from backend.config import Config
 from backend.agents.prompts import EVALUATOR_PROMPT_TEMPLATE
 from backend.agents.state import RagState, RouteName
-from backend.agents.utils import llm
+from backend.agents.utils import chat_logger, llm
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +60,7 @@ def evaluator_agent(state: RagState) -> dict:
         verdict = _parse_verdict(resp.content)
     except Exception as exc:
         logger.warning("Evaluator judging failed, accepting answer as-is: %s", exc)
+        chat_logger(state["chat_id"]).error("Evaluator judging failed: %s", exc)
         verdict = {**_DEFAULT_VERDICT, "reason": "evaluation failed, accepting answer"}
 
     return {"eval_verdict": verdict, "retrieval_round": round_num + 1}

@@ -101,3 +101,8 @@ CLARIFIER_PROMPT_TEMPLATE = (
 CLARIFIER_FALLBACK_QUESTION = (
     "Could you clarify which document you mean before I answer?"
 )
+
+CHAT_TITLE_PROMPT_TEMPLATE = (
+    "Generate a short chat title (3-6 words, no quotes, no punctuation at "
+    "the end) summarizing what this message is about:\n\n{message}"
+)

@@ -261,19 +261,6 @@
         </div>
     </div>
 
-    <!-- NEW-CHAT MODAL -->
-    <div class="modal-overlay" id="nameModal">
-        <div class="modal">
-            <h3>New chat</h3>
-            <p>Give your conversation a name.</p>
-            <input type="text" id="nameInput" placeholder="e.g. Resume review" maxlength="60" autocomplete="off" />
-            <div class="modal-actions">
-                <button class="modal-btn ghost" id="nameCancel" type="button">Cancel</button>
-                <button class="modal-btn primary" id="nameCreate" type="button">Create</button>
-            </div>
-        </div>
-    </div>
-
     <!-- DELETE-CONFIRM MODAL -->
     <div class="modal-overlay" id="confirmModal">
         <div class="modal">
@@ -375,21 +362,6 @@
             } catch (err) {
                 console.error('loadChatHistory error:', err);
             }
-        }
-
-        /* ─── new-chat modal ─── */
-        function openNameModal() {
-            const m = document.getElementById('nameModal');
-            const inp = document.getElementById('nameInput');
-            inp.value = '';
-            m.classList.add('open');
-            setTimeout(() => inp.focus(), 30);
-        }
-        function closeNameModal() { document.getElementById('nameModal').classList.remove('open'); }
-        async function submitNewChat() {
-            const name = (document.getElementById('nameInput').value || '').trim() || 'New Chat';
-            closeNameModal();
-            await createChat(name);
         }
 
         /* ─── delete-confirm modal ─── */
@@ -525,6 +497,9 @@
                 removeTyping();
                 if (res.ok) {
                     addMessage('assistant', data.answer, data.citations || []);
+                    // The backend auto-titles a chat from its first message —
+                    // refresh the sidebar so the new name shows up.
+                    await loadChats();
                 } else {
                     addMessage('assistant', 'Error: ' + (data.detail || 'Unknown error'));
                 }
@@ -590,7 +565,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('newChatBtn').addEventListener('click', openNameModal);
+            document.getElementById('newChatBtn').addEventListener('click', () => createChat('New Chat'));
             document.getElementById('sendBtn').addEventListener('click', askQuestion);
             document.getElementById('attachBtn').addEventListener('click', () => document.getElementById('fileInput').click());
             document.getElementById('fileInput').addEventListener('change', handleFiles);
@@ -601,13 +576,6 @@
             qi.addEventListener('focus', () => composer.classList.add('focused'));
             qi.addEventListener('blur', () => composer.classList.remove('focused'));
 
-            // new-chat modal
-            document.getElementById('nameCreate').addEventListener('click', submitNewChat);
-            document.getElementById('nameCancel').addEventListener('click', closeNameModal);
-            document.getElementById('nameInput').addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') submitNewChat();
-                if (e.key === 'Escape') closeNameModal();
-            });
             // delete-confirm modal
             document.getElementById('confirmOk').addEventListener('click', doDelete);
             document.getElementById('confirmCancel').addEventListener('click', closeConfirm);

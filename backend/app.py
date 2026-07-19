@@ -17,6 +17,7 @@ Routes
 - ``GET  /health``               — Health check
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -29,6 +30,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from langchain_core.messages import HumanMessage
 
 # Configure the root logger here, before any other module's `getLogger()` calls
 # emit anything — app.py is the entrypoint every other module gets imported
@@ -40,6 +42,8 @@ logging.basicConfig(
 )
 
 from backend.config import Config
+from backend.agents.prompts import CHAT_TITLE_PROMPT_TEMPLATE
+from backend.agents.utils import llm
 from backend.document_processor import (
     SUPPORTED_EXTENSIONS,
     build_chunk_metadata,
@@ -258,6 +262,16 @@ async def get_document(source: str):
     return FileResponse(path, filename=source)
 
 
+async def _generate_chat_title(message: str) -> str:
+    """One cheap LLM call to turn the first message into a short chat title.
+    Runs concurrently with the real answer (see `chat()`) via asyncio.gather,
+    so it adds no perceived latency — whichever finishes last is what the
+    request actually waits on, and the answer is normally the slower of the two."""
+    prompt = CHAT_TITLE_PROMPT_TEMPLATE.format(message=message)
+    resp = await llm.ainvoke([HumanMessage(content=prompt)])
+    return resp.content.strip().strip('"').strip("'")[:60]
+
+
 @app.post("/chats/{chat_id}/chat")
 async def chat(chat_id: str, question: str = Form(...)):
     if chat_id not in chat_metadata:
@@ -265,7 +279,25 @@ async def chat(chat_id: str, question: str = Form(...)):
     if not question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty")
 
-    result = await run_in_threadpool(chat_engine.answer, chat_id, question.strip())
+    question = question.strip()
+    is_first_message = not chat_engine.get_history(chat_id)
+
+    if is_first_message:
+        result, title = await asyncio.gather(
+            run_in_threadpool(chat_engine.answer, chat_id, question),
+            _generate_chat_title(question),
+            return_exceptions=True,
+        )
+        if isinstance(result, BaseException):
+            raise result
+        if isinstance(title, str) and title:
+            chat_metadata[chat_id]["name"] = title
+            _save_chat_metadata(chat_metadata)
+        elif isinstance(title, BaseException):
+            logger.warning("Chat title generation failed: %s", title)
+    else:
+        result = await run_in_threadpool(chat_engine.answer, chat_id, question)
+
     return {
         "answer": result["answer"],
         "citations": result.get("citations", []),
