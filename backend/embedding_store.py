@@ -151,6 +151,20 @@ class VectorStore:
                 sources.add(m["source"])
         return sorted(sources)
 
+    def get_document_list(self) -> List[dict]:
+        """One entry per uploaded document (deduped by source), newest first,
+        for a document-management UI. upload_date is stamped once per upload
+        in build_chunk_metadata and identical across a document's own chunks."""
+        collection = self.get_collection()
+        data = collection.get(include=["metadatas"])
+        by_source = {}
+        for m in data["metadatas"] or []:
+            if m and "source" in m:
+                by_source[m["source"]] = m.get("upload_date", "")
+        docs = [{"source": s, "upload_date": d} for s, d in by_source.items()]
+        docs.sort(key=lambda d: d["upload_date"], reverse=True)
+        return docs
+
     def get_document_count(self, chat_id: str) -> int:
         collection = self.get_collection(chat_id)
         return len(collection.get()["ids"])

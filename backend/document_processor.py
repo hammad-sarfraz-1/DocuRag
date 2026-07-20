@@ -5,6 +5,7 @@ from typing import List
 
 from pypdf import PdfReader
 from docx import Document
+from openpyxl import load_workbook
 from langchain_experimental.text_splitter import SemanticChunker
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -77,10 +78,21 @@ def extract_text_from_txt(file_bytes: bytes) -> str:
     return file_bytes.decode("utf-8")
 
 
+def extract_text_from_excel(file_bytes: bytes) -> str:
+    wb = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
+    lines = []
+    for sheet in wb.worksheets:
+        for row in sheet.iter_rows(values_only=True):
+            cells = [str(c) for c in row if c is not None]
+            if cells:
+                lines.append("\t".join(cells))
+    return "\n".join(lines)
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
-SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt"}
+SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt", ".xlsx"}
 
 
 def extract_text(file_bytes: bytes, filename: str) -> str:
@@ -91,6 +103,8 @@ def extract_text(file_bytes: bytes, filename: str) -> str:
         return extract_text_from_docx(file_bytes)
     elif filename.lower().endswith(".txt"):
         return extract_text_from_txt(file_bytes)
+    elif filename.lower().endswith(".xlsx"):
+        return extract_text_from_excel(file_bytes)
     else:
         raise ValueError(f"Unsupported file type: {filename}")
 

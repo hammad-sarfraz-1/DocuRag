@@ -7,6 +7,7 @@ Routes
 - ``GET  /``                     — Serve the frontend UI
 - ``GET  /rag``                  — RAG chatbot page
 - ``GET  /architecture``         — Architecture docs page
+- ``GET  /documents``            — Document upload/management page
 - ``POST /chats/new``            — Create a new chat session
 - ``GET  /chats``                — List all chats
 - ``DELETE /chats/{chat_id}``    — Delete a chat + its vector data
@@ -14,6 +15,8 @@ Routes
 - ``POST /chats/{chat_id}/chat`` — Ask a question (returns answer + citations)
 - ``GET  /chats/{chat_id}/history`` — Retrieve chat message history
 - ``GET  /documents/{source}``   — Serve an original uploaded file
+- ``GET  /api/documents/recent`` — List recently uploaded documents
+- ``POST /api/documents/upload`` — Upload a .txt file to the shared store
 - ``GET  /health``               — Health check
 """
 
@@ -130,6 +133,12 @@ async def serve_rag():
 @app.get("/architecture", response_class=HTMLResponse)
 async def serve_architecture():
     with open("frontend/architecture.html", "r") as f:
+        return f.read()
+
+
+@app.get("/documents", response_class=HTMLResponse)
+async def serve_documents_page():
+    with open("frontend/documents.html", "r") as f:
         return f.read()
 
 
@@ -260,6 +269,53 @@ async def get_document(source: str):
     if not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="Document not found")
     return FileResponse(path, filename=source)
+
+
+@app.get("/api/documents/recent")
+async def list_recent_documents(limit: int = 8):
+    """Most recently uploaded documents in the shared store, newest first."""
+    docs = await run_in_threadpool(vector_store.get_document_list)
+    return {"documents": docs[:limit]}
+
+
+@app.post("/api/documents/upload")
+async def upload_document_standalone(files: List[UploadFile] = File(...)):
+    """Upload files directly to the shared document store, with no chat
+    context required — for the standalone documents page."""
+    total_chunks = 0
+    per_file = []
+
+    for file in files:
+        ext = "." + file.filename.rsplit(".", 1)[-1].lower()
+        if ext not in SUPPORTED_EXTENSIONS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file type: {file.filename}. "
+                f"Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}",
+            )
+        try:
+            file_bytes = await file.read(Config.MAX_UPLOAD_SIZE_BYTES + 1)
+            if len(file_bytes) > Config.MAX_UPLOAD_SIZE_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"{file.filename} exceeds the upload size limit "
+                    f"({Config.MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)}MB).",
+                )
+            num_chunks = await run_in_threadpool(_process_upload, "", file.filename, file_bytes)
+            total_chunks += num_chunks
+            per_file.append({"filename": file.filename, "chunks": num_chunks})
+        except HTTPException:
+            raise
+        except Exception:
+            logger.exception("Error processing upload %s", file.filename)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Error processing {file.filename}. Please try again or "
+                "contact support if this persists.",
+            )
+
+    await run_in_threadpool(rebuild_bm25_index)
+    return {"status": "success", "chunks": total_chunks, "files": per_file}
 
 
 async def _generate_chat_title(message: str) -> str:
