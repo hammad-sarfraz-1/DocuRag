@@ -1,8 +1,6 @@
 """Chat session manager — maintains per-chat history and delegates to the agent."""
 
-import json
 import logging
-import os
 from typing import Dict, List
 
 from backend.config import Config
@@ -10,6 +8,7 @@ from backend.embedding_store import VectorStore
 from backend.agent import supervisor_agent
 from backend.agents.utils import _file_logger, chat_logger as _chat_logger
 from backend import answer_cache
+from backend.db import Message, SessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -17,30 +16,11 @@ _cache_logger = _file_logger("answer_cache", "answer_cache.log")
 
 
 class ChatEngine:
-    """Owns conversation history for all chats, persisted to disk so it
-    survives restarts/redeploys."""
+    """Owns conversation history for all chats, persisted to Postgres via the
+    ORM (messages table, one row per message) so it survives restarts/redeploys."""
 
     def __init__(self, vector_store: VectorStore):
         self.vector_store = vector_store
-        self.sessions: Dict[str, List[Dict[str, str]]] = self._load_sessions()
-
-    # ------------------------------------------------------------------
-    # Persistence
-    # ------------------------------------------------------------------
-    def _load_sessions(self) -> Dict[str, List[Dict[str, str]]]:
-        try:
-            with open(Config.HISTORY_FILE, "r") as f:
-                return json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            return {}
-
-    def _save_sessions(self):
-        try:
-            os.makedirs(os.path.dirname(Config.HISTORY_FILE) or ".", exist_ok=True)
-            with open(Config.HISTORY_FILE, "w") as f:
-                json.dump(self.sessions, f)
-        except Exception:
-            logger.exception("Failed to persist chat history")
 
     def create_chat(self, chat_id: str):
         """Start this chat's own log file. Called when a new chat starts."""
@@ -50,7 +30,22 @@ class ChatEngine:
     # Public API
     # ------------------------------------------------------------------
     def get_history(self, chat_id: str) -> List[Dict[str, str]]:
-        return self.sessions.get(chat_id, [])
+        with SessionLocal() as session:
+            messages = (
+                session.query(Message)
+                .filter(Message.chat_id == chat_id)
+                .order_by(Message.id)
+                .all()
+            )
+            return [
+                {
+                    "role": m.role,
+                    "content": m.content,
+                    "citations": m.citations,
+                    "needs_clarification": m.needs_clarification,
+                }
+                for m in messages
+            ]
 
     def answer(self, chat_id: str, question: str) -> dict:
         """Run the agent on a question and return ``{"answer": …, "citations": […]}``."""
@@ -104,38 +99,35 @@ class ChatEngine:
                     history_len=len(history),
                 )
 
-        # Persist to session history
-        if chat_id not in self.sessions:
-            self.sessions[chat_id] = []
-        self.sessions[chat_id].append({"role": "user", "content": question})
-        self.sessions[chat_id].append(
-            {
-                "role": "assistant",
-                "content": result["answer"],
-                # Persist citations alongside the message so they survive a chat
-                # reopen (the /history endpoint returns these dicts verbatim).
-                "citations": result.get("citations", []),
-                # Tagged when this message IS a clarifying question (Clarifier
-                # agent), so the NEXT turn can tell "the user is now resolving
-                # an ambiguity" apart from an ordinary follow-up, and resume
-                # the original question instead of treating the reply
-                # ("yes, the agreement") as a brand new question to retrieve.
-                "needs_clarification": result.get("needs_clarification", False),
-            }
-        )
-        self._save_sessions()
+        with SessionLocal() as session:
+            session.add(Message(chat_id=chat_id, role="user", content=question))
+            session.add(
+                Message(
+                    chat_id=chat_id,
+                    role="assistant",
+                    content=result["answer"],
+                    # Persist citations alongside the message so they survive a chat
+                    # reopen (the /history endpoint returns these dicts verbatim).
+                    citations=result.get("citations", []),
+                    # Tagged when this message IS a clarifying question (Clarifier
+                    # agent), so the NEXT turn can tell "the user is now resolving
+                    # an ambiguity" apart from an ordinary follow-up, and resume
+                    # the original question instead of treating the reply
+                    # ("yes, the agreement") as a brand new question to retrieve.
+                    needs_clarification=result.get("needs_clarification", False),
+                )
+            )
+            session.commit()
 
         return result
 
     def clear_history(self, chat_id: str):
-        if chat_id in self.sessions:
-            self.sessions[chat_id] = []
-            self._save_sessions()
+        with SessionLocal() as session:
+            session.query(Message).filter(Message.chat_id == chat_id).delete()
+            session.commit()
 
     def delete_chat(self, chat_id: str):
         self.vector_store.delete_chat(chat_id)
-        self.sessions.pop(chat_id, None)
-        self._save_sessions()
 
         # Close and detach the per-chat FileHandler so its open file
         # descriptor is released — logging.getLogger() never forgets a name,

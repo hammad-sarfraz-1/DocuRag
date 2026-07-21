@@ -211,7 +211,7 @@
         .tech-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
         .tech-dot.groq { background: #D97757; }
         .tech-dot.chroma { background: #6366f1; }
-        .tech-dot.cloud { background: #E0A33E; }
+        .tech-dot.postgres { background: #336791; }
         .tech-dot.docker { background: #2496ED; }
         .tech-dot.mcp { background: #9C7CF4; }
         .tech-dot.langgraph { background: #4F9D69; }
@@ -305,8 +305,8 @@
             <div class="badge"><span class="dot"></span> Agentic RAG System</div>
             <h1>Multi-Agent<br /><span class="accent">RAG System</span></h1>
             <p class="subtitle">
-                A production-ready RAG chatbot powered by 5 specialized AI agents,
-                multi-strategy retrieval, and deployed with Docker + Nginx on a Linux cloud server.
+                A production-ready RAG chatbot powered by 7 specialized AI agents,
+                multi-strategy retrieval, and a centralized document store — deployed with Docker Compose.
             </p>
 
             <div class="actions">
@@ -320,19 +320,19 @@
             <span class="tech-item"><span class="tech-dot groq"></span> Groq LLM</span>
             <span class="tech-item"><span class="tech-dot chroma"></span> ChromaDB</span>
             <span class="tech-item"><span class="tech-dot langgraph"></span> LangGraph</span>
-            <span class="tech-item"><span class="tech-dot docker"></span> Docker</span>
-            <span class="tech-item"><span class="tech-dot cloud"></span> Linux Cloud</span>
+            <span class="tech-item"><span class="tech-dot postgres"></span> PostgreSQL</span>
+            <span class="tech-item"><span class="tech-dot docker"></span> Docker Compose</span>
             <span class="tech-item"><span class="tech-dot mcp"></span> MCP Protocol</span>
         </div>
 
         <div class="features">
             <div class="feature-card">
-                <h4>5 Agentic Agents</h4>
-                <p>Query Planner &rarr; Retrieval &rarr; Critic &rarr; Synthesis &rarr; Cache</p>
+                <h4>7 Agentic Agents</h4>
+                <p>Planner &rarr; Clarifier &rarr; Retrieval &rarr; Reranker &rarr; Web Search &rarr; Synthesizer &rarr; Evaluator</p>
             </div>
             <div class="feature-card">
-                <h4>4 Retrieval Strategies</h4>
-                <p>Vector &middot; BM25 &middot; Hybrid &middot; Web — auto-routed</p>
+                <h4>Hybrid Retrieval</h4>
+                <p>Vector &middot; BM25 &middot; RRF fusion &middot; Web fallback — auto-routed</p>
             </div>
             <div class="feature-card">
                 <h4>Self-Critique Loop</h4>
@@ -351,7 +351,7 @@
             Built with Python, LLMs, vector databases, Docker and cloud deployment.
         </div>
         <div class="tagline">
-            MULTI-AGENT SUPER RAG &middot; FASTAPI &middot; LANGGRAPH &middot; CHROMADB &middot; MCP &middot; DOCKER
+            MULTI-AGENT SUPER RAG &middot; FASTAPI &middot; LANGGRAPH &middot; CHROMADB &middot; POSTGRESQL &middot; DOCKER
         </div>
     </footer>
 

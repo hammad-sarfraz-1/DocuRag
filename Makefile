@@ -1,13 +1,12 @@
 # DDRPRIV — agentic RAG chatbot
 # The frontend and backend are ONE Uvicorn process (FastAPI serves the API and
-# the static HTML), so `make up` / `make down` bring both online/offline together.
+# the static HTML); Postgres runs alongside it via docker-compose.
 
 IMAGE       := docurag
-CONTAINER   := docurag_dev
 PORT        ?= 8000
 PERSIST_DIR := $(CURDIR)/chroma_db
 LOGS_DIR    := $(CURDIR)/logs
-CHAT_META_DIR := $(CURDIR)/chat_meta
+PGDATA_DIR  := $(CURDIR)/pgdata
 
 .DEFAULT_GOAL := help
 .PHONY: help build up down restart status logs clean
@@ -19,53 +18,36 @@ help:               ## Show this help
 build:              ## Build the Docker image
 	docker build -t $(IMAGE) .
 
-up:                 ## Start frontend + backend on $(PORT) (Docker) — run 'make build' first
-	@mkdir -p $(PERSIST_DIR) $(LOGS_DIR) $(CHAT_META_DIR)
-	@test -f $(CHAT_META_DIR)/chat_metadata.json || echo '{}' > $(CHAT_META_DIR)/chat_metadata.json
-	@docker rm -f $(CONTAINER) >/dev/null 2>&1 || true
-	@echo "Starting http://localhost:$(PORT) (first boot downloads models, ~20s) ..."
-	@docker run -d --name $(CONTAINER) \
-		--env-file .env \
-		-p $(PORT):8000 \
-		-v $(PERSIST_DIR):/app/chroma_db \
-		-v $(LOGS_DIR):/app/logs \
-		-v $(CHAT_META_DIR):/app/chat_meta \
-		-e CHAT_META_FILE=/app/chat_meta/chat_metadata.json \
-		$(IMAGE) >/dev/null
+up:                 ## Start frontend + backend + postgres (Docker Compose) — run 'make build' first
+	@mkdir -p $(PERSIST_DIR) $(LOGS_DIR) $(PGDATA_DIR)
+	@PORT=$(PORT) docker compose up -d
 	@for i in $$(seq 1 90); do \
 		if curl -sf http://localhost:$(PORT)/health >/dev/null 2>&1; then \
-			echo "Ready -> http://localhost:$(PORT)  (container: $(CONTAINER), logs: make logs)"; exit 0; \
-		fi; \
-		if ! docker ps -q -f name=^/$(CONTAINER)$$ | grep -q .; then \
-			echo "Failed to start — last log lines:"; docker logs --tail 30 $(CONTAINER); exit 1; \
+			echo "Ready -> http://localhost:$(PORT)  (logs: make logs)"; exit 0; \
 		fi; \
 		sleep 1; \
 	done; \
 	echo "Timed out waiting for /health — check 'make logs'"; exit 1
 
-down:               ## Stop frontend + backend
-	@docker rm -f $(CONTAINER) >/dev/null 2>&1 && echo "Stopped." || echo "Not running."
+down:               ## Stop frontend + backend + postgres
+	docker compose down
 
-restart:            ## Restart frontend + backend
+restart:            ## Restart frontend + backend + postgres
 	@$(MAKE) --no-print-directory down
 	@$(MAKE) --no-print-directory up
 
 status:             ## Show whether the app is running
-	@if docker ps -q -f name=^/$(CONTAINER)$$ | grep -q .; then \
-		printf "Running (container: $(CONTAINER)) — health: "; \
-		curl -s http://localhost:$(PORT)/health || echo "(no response)"; echo; \
-	else \
-		echo "Not running."; \
-	fi
+	@docker compose ps
+	@printf "health: "; curl -s http://localhost:$(PORT)/health || echo "(no response)"; echo
 
 logs:               ## Follow the server log
-	@docker logs -f --tail 50 $(CONTAINER)
+	docker compose logs -f --tail 50 app
 
-clean:              ## Stop the app and wipe chroma_db/, chat history, and logs
+clean:              ## Stop the app and wipe chroma_db/, logs, and the postgres volume
 	@$(MAKE) --no-print-directory down >/dev/null 2>&1 || true
 	@docker run --rm \
 		-v $(PERSIST_DIR):/target/chroma_db \
 		-v $(LOGS_DIR):/target/logs \
-		-v $(CHAT_META_DIR):/target/chat_meta \
-		alpine sh -c 'rm -rf /target/chroma_db/* /target/chroma_db/.[!.]* /target/logs/* /target/logs/.[!.]* /target/chat_meta/* /target/chat_meta/.[!.]*' 2>/dev/null || true
+		-v $(PGDATA_DIR):/target/pgdata \
+		alpine sh -c 'rm -rf /target/chroma_db/* /target/chroma_db/.[!.]* /target/logs/* /target/logs/.[!.]* /target/pgdata/* /target/pgdata/.[!.]*' 2>/dev/null || true
 	@echo "Cleaned."

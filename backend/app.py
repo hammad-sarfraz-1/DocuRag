@@ -21,7 +21,6 @@ Routes
 """
 
 import asyncio
-import json
 import logging
 import os
 import sys
@@ -34,6 +33,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from langchain_core.messages import HumanMessage
+from sqlalchemy import select
 
 # Configure the root logger here, before any other module's `getLogger()` calls
 # emit anything — app.py is the entrypoint every other module gets imported
@@ -56,6 +56,7 @@ from backend.document_processor import (
 from backend.embedding_store import VectorStore
 from backend.chat_engine import ChatEngine
 from backend.retrieval_tools import rebuild_bm25_index
+from backend.db import Chat, SessionLocal, init_schema
 
 logger = logging.getLogger(__name__)
 
@@ -85,27 +86,15 @@ def _document_path(source: str) -> str:
     return os.path.join(Config.DOCUMENTS_DIR, _sanitize_filename(source))
 
 
-def _load_chat_metadata() -> dict:
-    try:
-        with open(Config.CHAT_META_FILE, "r") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {}
-    except json.JSONDecodeError:
-        logger.exception("Failed to parse %s; starting with empty chat registry", Config.CHAT_META_FILE)
-        return {}
-
-
-def _save_chat_metadata(meta: dict):
-    tmp_path = Config.CHAT_META_FILE + ".tmp"
-    with open(tmp_path, "w") as f:
-        json.dump(meta, f, indent=2)
-    os.replace(tmp_path, Config.CHAT_META_FILE)
+def _chat_exists(chat_id: str) -> bool:
+    with SessionLocal() as session:
+        return session.get(Chat, chat_id) is not None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Application starting")
+    init_schema()
     yield
     logger.info("Shutting down")
 
@@ -115,7 +104,6 @@ app = FastAPI(
     version="2.0.0",
     lifespan=lifespan,
 )
-chat_metadata = _load_chat_metadata()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -152,6 +140,12 @@ async def health():
     except Exception:
         logger.exception("Health check: vector store heartbeat failed")
         failures.append("vector_store_unreachable")
+    try:
+        with SessionLocal() as session:
+            session.execute(select(1))
+    except Exception:
+        logger.exception("Health check: database unreachable")
+        failures.append("database_unreachable")
     if failures:
         raise HTTPException(status_code=503, detail={"status": "error", "failed": failures})
     return {"status": "ok"}
@@ -160,25 +154,28 @@ async def health():
 @app.post("/chats/new")
 async def create_chat(name: str = Form("New Chat")):
     chat_id = str(uuid.uuid4())
-    chat_metadata[chat_id] = {"name": name}
-    _save_chat_metadata(chat_metadata)
+    with SessionLocal() as session:
+        session.add(Chat(id=chat_id, name=name))
+        session.commit()
     chat_engine.create_chat(chat_id)
     return {"chat_id": chat_id, "name": name}
 
 
 @app.get("/chats")
 async def list_chats():
-    return [
-        {"chat_id": cid, "name": data["name"]}
-        for cid, data in chat_metadata.items()
-    ]
+    with SessionLocal() as session:
+        chats = session.query(Chat).order_by(Chat.created_at).all()
+        return [{"chat_id": str(c.id), "name": c.name} for c in chats]
 
 
 @app.delete("/chats/{chat_id}")
 async def delete_chat(chat_id: str):
     chat_engine.delete_chat(chat_id)
-    chat_metadata.pop(chat_id, None)
-    _save_chat_metadata(chat_metadata)
+    with SessionLocal() as session:
+        chat = session.get(Chat, chat_id)
+        if chat is not None:
+            session.delete(chat)
+            session.commit()
     return {"status": "deleted"}
 
 
@@ -208,7 +205,7 @@ def _process_upload(chat_id: str, filename: str, file_bytes: bytes) -> int:
 
 @app.post("/chats/{chat_id}/upload")
 async def upload_files(chat_id: str, files: List[UploadFile] = File(...)):
-    if chat_id not in chat_metadata:
+    if not _chat_exists(chat_id):
         raise HTTPException(status_code=404, detail="Chat not found")
 
     total_chunks = 0
@@ -251,7 +248,7 @@ async def upload_files(chat_id: str, files: List[UploadFile] = File(...)):
 @app.delete("/chats/{chat_id}/documents")
 async def delete_document(chat_id: str, source: str):
     """Remove a single uploaded document (by filename) from the shared store."""
-    if chat_id not in chat_metadata:
+    if not _chat_exists(chat_id):
         raise HTTPException(status_code=404, detail="Chat not found")
     await run_in_threadpool(vector_store.delete_document, chat_id, source)
     await run_in_threadpool(rebuild_bm25_index, chat_id)
@@ -330,7 +327,7 @@ async def _generate_chat_title(message: str) -> str:
 
 @app.post("/chats/{chat_id}/chat")
 async def chat(chat_id: str, question: str = Form(...)):
-    if chat_id not in chat_metadata:
+    if not _chat_exists(chat_id):
         raise HTTPException(status_code=404, detail="Chat not found")
     if not question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty")
@@ -347,8 +344,11 @@ async def chat(chat_id: str, question: str = Form(...)):
         if isinstance(result, BaseException):
             raise result
         if isinstance(title, str) and title:
-            chat_metadata[chat_id]["name"] = title
-            _save_chat_metadata(chat_metadata)
+            with SessionLocal() as session:
+                chat = session.get(Chat, chat_id)
+                if chat is not None:
+                    chat.name = title
+                    session.commit()
         elif isinstance(title, BaseException):
             logger.warning("Chat title generation failed: %s", title)
     else:
@@ -362,6 +362,6 @@ async def chat(chat_id: str, question: str = Form(...)):
 
 @app.get("/chats/{chat_id}/history")
 async def get_history(chat_id: str):
-    if chat_id not in chat_metadata:
+    if not _chat_exists(chat_id):
         raise HTTPException(status_code=404, detail="Chat not found")
     return {"history": chat_engine.get_history(chat_id)}

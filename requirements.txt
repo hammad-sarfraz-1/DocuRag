@@ -37,3 +37,6 @@ tavily-python==0.7.26
 rank-bm25==0.2.2
 
 python-dotenv==1.2.2
+
+sqlalchemy==2.0.38
+psycopg[binary]==3.3.1

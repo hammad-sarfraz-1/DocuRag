@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: docurag
+      POSTGRES_PASSWORD: docurag
+      POSTGRES_DB: docurag
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docurag"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  app:
+    image: docurag
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://docurag:docurag@postgres:5432/docurag
+    ports:
+      - "${PORT:-8000}:8000"
+    volumes:
+      - ./chroma_db:/app/chroma_db
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy

@@ -19,7 +19,7 @@ env/
 
 # Vector store / database
 chroma_db/
-chat_meta/
+pgdata/
 
 # IDE
 .vscode/

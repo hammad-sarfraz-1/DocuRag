@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
+    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg://docurag:docurag@localhost:5432/docurag")
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
     MODEL_NAME = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
@@ -26,15 +27,11 @@ class Config:
     SMALL_CORPUS_CHUNKS = int(os.getenv("SMALL_CORPUS_CHUNKS", "25"))
 
     PERSIST_DIR = os.getenv("PERSIST_DIR", "./chroma_db")
-    CHAT_META_FILE = os.getenv("CHAT_META_FILE", "./chat_metadata.json")
     # Cap on a single uploaded file's size. 25MB comfortably covers PDF/DOCX/TXT
     # use cases while bounding how much memory one upload can consume.
     MAX_UPLOAD_SIZE_BYTES = int(os.getenv("MAX_UPLOAD_SIZE_BYTES", str(25 * 1024 * 1024)))
     # Raw uploaded files, kept so a citation can open the original document.
     DOCUMENTS_DIR = os.getenv("DOCUMENTS_DIR", os.path.join(PERSIST_DIR, "documents"))
-    # Kept inside PERSIST_DIR by default so chat history lands on the same
-    # persisted volume as the vector store (survives restarts/redeploys).
-    HISTORY_FILE = os.getenv("HISTORY_FILE", os.path.join(PERSIST_DIR, "chat_history.json"))
 
     USE_OCR = os.getenv("USE_OCR", "true").lower() == "true"
     OCR_LANG = ["en"]
